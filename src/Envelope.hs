@@ -17,7 +17,7 @@ data Envelope a = Envelope
 instance ToJSON (Envelope OutgoingMessage) where
   toJSON Envelope { to, message } = object [
     "to" .= show to,
-    "message" .= toJSON message
+    "message" .= message
     ]
 
 instance FromJSON (Envelope IncomingMessage) where
