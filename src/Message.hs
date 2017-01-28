@@ -3,14 +3,10 @@
 
 module Message where
 
-import Prelude hiding (id)
-
-import Data.Text
-import Data.Text.Encoding
+import Control.Monad
 import Data.Aeson
 import Data.Semigroup
 
-import State
 import Participant
 
 data IncomingMessage
@@ -32,3 +28,5 @@ instance FromJSON IncomingMessage where
     name <- message .: "name"
     case name of
       String "session.create" -> CreateSession <$> message .: "gameMaster"
+      _ -> fail "Unrecognized incoming message"
+  parseJSON _ = mzero

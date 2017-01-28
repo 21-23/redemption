@@ -4,7 +4,6 @@
 module Session where
 
 import Data.Map (Map)
-import qualified Data.Map as Map
 import Database.MongoDB
 
 import BSON

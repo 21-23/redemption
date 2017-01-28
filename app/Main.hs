@@ -4,7 +4,7 @@
 module Main where
 
 import           Control.Concurrent
-import           Control.Monad       (forever, unless)
+import           Control.Monad       (forever)
 import           Network.Socket      (withSocketsDo)
 import qualified Network.WebSockets  as WS
 import Data.Aeson
@@ -13,7 +13,6 @@ import Database.MongoDB
 import BSON
 import State (State)
 import qualified State
-import Session
 import Message
 import Envelope
 
@@ -30,7 +29,7 @@ app stateVar dbPipe conn = do
           let session = State.createSession oid gameMaster
           state <- takeMVar stateVar
           putMVar stateVar $ State.addSession session state
-          run $ insert "sessions" $ toBSON session
+          _ <- run $ insert "sessions" $ toBSON session
           return ()
       Left err -> do
         putStrLn err

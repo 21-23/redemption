@@ -3,12 +3,10 @@
 
 module State where
 
-import Prelude
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Database.MongoDB
 
-import BSON
 import Participant
 import Session
 

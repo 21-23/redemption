@@ -3,6 +3,7 @@
 
 module Participant where
 
+import Control.Monad
 import Data.Aeson
 import Database.MongoDB
 
@@ -24,6 +25,7 @@ instance FromJSON Participant where
   parseJSON (Object participant) = Participant
     <$> participant .: "id"
     <*> participant .: "name"
+  parseJSON _ = mzero
 
 instance ToBSON Participant where
   toBSON Participant {participantId, name} = [ "_id" =: participantId, "name" =: name ]
