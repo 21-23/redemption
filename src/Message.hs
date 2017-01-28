@@ -13,23 +13,22 @@ import Data.Semigroup
 import State
 import Participant
 
-data Message
+data IncomingMessage
+  = CreateSession Participant
+
+data OutgoingMessage
   = ArnauxCheckin String
-  | CreateSession Participant
 
-toName :: Message -> String
+toName :: OutgoingMessage -> String
 toName (ArnauxCheckin _) = "checkin"
-toName (CreateSession _) = "session.create"
 
-instance ToJSON Message where
+instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
     where
       toValue (ArnauxCheckin identity) = ["identity" .= identity]
-      toValue (CreateSession gameMaster) = ["gameMaster" .= toJSON gameMaster]
 
-instance FromJSON Message where
+instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
     name <- message .: "name"
     case name of
-      String "checkin" -> ArnauxCheckin <$> message .: "identity"
       String "session.create" -> CreateSession <$> message .: "gameMaster"

@@ -23,7 +23,7 @@ app stateVar dbPipe conn = do
   forever $ do
     string <- WS.receiveData conn
     let run = access dbPipe master "redemption-test"
-    case eitherDecode string :: Either String Envelope of
+    case eitherDecode string :: Either String (Envelope IncomingMessage) of
       Right Envelope {message} -> case message of
         CreateSession gameMaster -> do
           oid <- genObjectId

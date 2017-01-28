@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Envelope where
 
@@ -14,18 +15,18 @@ instance Show Recipient where
 parseRecipient :: String -> Recipient
 parseRecipient "messenger" = Messenger
 
-data Envelope = Envelope
+data Envelope a = Envelope
   { to :: Recipient
-  , message :: Message
+  , message :: a
   }
 
-instance ToJSON Envelope where
+instance ToJSON (Envelope OutgoingMessage) where
   toJSON Envelope { to, message } = object [
     "to" .= show to,
     "message" .= toJSON message
     ]
 
-instance FromJSON Envelope where
+instance FromJSON (Envelope IncomingMessage) where
   parseJSON (Object envelope) = Envelope
     <$> (parseRecipient <$> envelope .: "to")
     <*> envelope .: "message"
