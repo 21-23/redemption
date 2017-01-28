@@ -21,6 +21,7 @@ library
                      , Participant
                      , Envelope
                      , BSON
+                     , Identity
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , text

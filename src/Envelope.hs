@@ -7,18 +7,10 @@ module Envelope where
 import Control.Monad
 import Data.Aeson
 import Message
-
-data Recipient = Messenger
-
-instance Show Recipient where
-  show Messenger = "messenger"
-
-parseRecipient :: String -> Maybe Recipient
-parseRecipient "messenger" = Just Messenger
-parseRecipient _ = Nothing
+import Identity
 
 data Envelope a = Envelope
-  { to :: Recipient
+  { to :: Identity
   , message :: a
   }
 
@@ -31,7 +23,7 @@ instance ToJSON (Envelope OutgoingMessage) where
 instance FromJSON (Envelope IncomingMessage) where
   parseJSON (Object envelope) = do
     to <- envelope .: "to"
-    case parseRecipient to of
-      Just recipient -> Envelope <$> pure recipient <*> envelope .: "message"
-      Nothing -> fail "Unknown recipient"
+    case parseIdentity to of
+      Just identity -> Envelope <$> pure identity <*> envelope .: "message"
+      Nothing -> fail "Unknown identity"
   parseJSON _ = mzero

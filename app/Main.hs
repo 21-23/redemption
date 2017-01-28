@@ -14,11 +14,12 @@ import BSON
 import State (State)
 import qualified State
 import Message
+import Identity
 import Envelope
 
 app :: MVar State -> Pipe -> WS.ClientApp ()
 app stateVar dbPipe conn = do
-  WS.sendTextData conn $ encode $ Envelope Messenger (ArnauxCheckin "state")
+  WS.sendTextData conn $ encode $ Envelope Messenger (ArnauxCheckin StateService)
   forever $ do
     string <- WS.receiveData conn
     let run = access dbPipe master "redemption-test"
@@ -30,6 +31,10 @@ app stateVar dbPipe conn = do
           state <- takeMVar stateVar
           putMVar stateVar $ State.addSession session state
           _ <- run $ insert "sessions" $ toBSON session
+          WS.sendTextData conn $ encode Envelope
+            { to = FrontService
+            , message = SessionCreated session
+            }
           return ()
       Left err -> do
         putStrLn err
