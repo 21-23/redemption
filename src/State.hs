@@ -1,25 +1,26 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module State where
 
-import Data.Map
+import Prelude
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Database.MongoDB
 
-data Participant = Participant
-  { id :: String
-  , name :: String
-  }
+import BSON
+import Participant
+import Session
 
-data Session = Session
-  { gameMaster :: Participant
-  , participants :: Map String Participant
-  }
+data State = State { sessions :: Map ObjectId Session }
 
-data State = State
-  { sessions :: Map Int Session
-  , sessionId :: Int }
+empty :: State
+empty = State { sessions = Map.empty }
 
-createSession :: Participant -> State -> State
-createSession gameMaster state@State{sessions, sessionId} =
-  state { sessions = insert sessionId newSession sessions, sessionId = nextId  }
-    where nextId = sessionId + 1
-          newSession = Session { gameMaster, participants = empty }
+createSession :: ObjectId -> Participant -> Session
+createSession oid gameMaster =
+  Session { sessionId = oid, gameMaster, participants = Map.empty }
+
+addSession :: Session -> State -> State
+addSession session@Session{sessionId} state@State{sessions} =
+  state { sessions = Map.insert sessionId session sessions }

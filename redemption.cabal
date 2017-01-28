@@ -17,10 +17,15 @@ library
   hs-source-dirs:      src
   exposed-modules:     State
                      , Message
+                     , Session
+                     , Participant
+                     , Envelope
+                     , BSON
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , text
                      , aeson
+                     , mongoDB
   default-language:    Haskell2010
 
 executable redemption-exe
@@ -34,6 +39,7 @@ executable redemption-exe
                      , network
                      , text
                      , aeson
+                     , mongoDB
   default-language:    Haskell2010
 
 test-suite redemption-test

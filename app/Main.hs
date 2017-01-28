@@ -1,26 +1,43 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
 
-import           Control.Concurrent  (forkIO)
+import           Control.Concurrent
 import           Control.Monad       (forever, unless)
-import           Control.Monad.Trans (liftIO)
 import           Network.Socket      (withSocketsDo)
-import qualified Data.Text           as Text
-import qualified Data.Text.IO        as Text
 import qualified Network.WebSockets  as WS
 import Data.Aeson
+import Database.MongoDB
 
-import State
+import BSON
+import State (State)
+import qualified State
+import Session
 import Message
+import Envelope
 
-app :: WS.ClientApp ()
-app conn = do
+app :: MVar State -> Pipe -> WS.ClientApp ()
+app stateVar dbPipe conn = do
   WS.sendTextData conn $ encode $ Envelope Messenger (ArnauxCheckin "state")
   forever $ do
-    msg <- WS.receiveData conn
-    liftIO $ Text.putStrLn msg
+    string <- WS.receiveData conn
+    let run = access dbPipe master "redemption-test"
+    case eitherDecode string :: Either String Envelope of
+      Right Envelope {message} -> case message of
+        CreateSession gameMaster -> do
+          oid <- genObjectId
+          let session = State.createSession oid gameMaster
+          state <- takeMVar stateVar
+          putMVar stateVar $ State.addSession session state
+          run $ insert "sessions" $ toBSON session
+          return ()
+      Left err -> do
+        putStrLn err
+        return ()
 
 main :: IO ()
-main =
-  withSocketsDo $ WS.runClient "localhost" 3000 "/" app
+main = do
+  stateVar <- newMVar State.empty
+  pipe <- connect (host "127.0.0.1")
+  withSocketsDo $ WS.runClient "localhost" 3000 "/" $ app stateVar pipe
