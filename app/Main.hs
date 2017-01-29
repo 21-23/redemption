@@ -4,9 +4,10 @@
 module Main where
 
 import           Control.Concurrent
-import           Control.Monad       (forever)
-import           Network.Socket      (withSocketsDo)
-import qualified Network.WebSockets  as WS
+import           Control.Monad          (forever)
+import           Control.Monad.IO.Class (MonadIO)
+import           Network.Socket         (withSocketsDo)
+import qualified Network.WebSockets     as WS
 import Data.Aeson
 import Database.MongoDB
 
@@ -17,28 +18,33 @@ import Message
 import Identity
 import Envelope
 
+updateState :: MVar State -> (State -> State) -> IO ()
+updateState stateVar action = do
+  state <- takeMVar stateVar
+  putMVar stateVar $ action state
+
+doMongoDBAction :: (MonadIO m) => Pipe -> Action m a -> m a
+doMongoDBAction pipe = access pipe master "redemption-test"
+
+sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
+sendMessage connection to message =
+  WS.sendTextData connection $ encode $ Envelope to message
+
 app :: MVar State -> Pipe -> WS.ClientApp ()
-app stateVar dbPipe conn = do
-  WS.sendTextData conn $ encode $ Envelope Messenger (ArnauxCheckin StateService)
+app stateVar dbPipe connection = do
+  WS.sendTextData connection $ encode $ Envelope Messenger (ArnauxCheckin StateService)
+  let run = doMongoDBAction dbPipe
   forever $ do
-    string <- WS.receiveData conn
-    let run = access dbPipe master "redemption-test"
+    string <- WS.receiveData connection
     case eitherDecode string :: Either String (Envelope IncomingMessage) of
       Right Envelope {message} -> case message of
         CreateSession gameMaster -> do
           oid <- genObjectId
           let session = State.createSession oid gameMaster
-          state <- takeMVar stateVar
-          putMVar stateVar $ State.addSession session state
+          updateState stateVar $ State.addSession session
           _ <- run $ insert "sessions" $ toBSON session
-          WS.sendTextData conn $ encode Envelope
-            { to = FrontService
-            , message = SessionCreated session
-            }
-          return ()
-      Left err -> do
-        putStrLn err
-        return ()
+          sendMessage connection FrontService $ SessionCreated session
+      Left err -> putStrLn err
 
 main :: IO ()
 main = do
