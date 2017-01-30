@@ -28,4 +28,4 @@ instance FromJSON Participant where
   parseJSON _ = mzero
 
 instance ToBSON Participant where
-  toBSON Participant {participantId, name} = [ "_id" =: participantId, "name" =: name ]
+  toBSON Participant {participantId, name} = [ "id" =: participantId, "name" =: name ]

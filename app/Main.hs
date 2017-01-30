@@ -40,10 +40,18 @@ app stateVar dbPipe connection = do
       Right Envelope {message} -> case message of
         CreateSession gameMaster -> do
           oid <- genObjectId
-          let session = State.createSession oid gameMaster
+          let session = State.createSession (show oid) gameMaster
           updateState stateVar $ State.addSession session
           _ <- run $ insert "sessions" $ toBSON session
           sendMessage connection FrontService $ SessionCreated session
+        JoinSession sessionId participant -> do
+          updateState stateVar $ State.addParticipant sessionId participant
+          _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$push" =: [ "participants" =: toBSON participant] ]
+          sendMessage connection FrontService $ ParticipantJoined sessionId participant
+        LeaveSession sessionId participantId -> do
+          updateState stateVar $ State.removeParticipant sessionId participantId
+          _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$pull" =: [ "participants" =: ["id" =: participantId] ] ]
+          sendMessage connection FrontService $ ParticipantLeft sessionId participantId
       Left err -> putStrLn err
 
 main :: IO ()
