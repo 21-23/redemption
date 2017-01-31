@@ -23,6 +23,8 @@ library
                      , BSON
                      , Identity
                      , Reference
+                     , Puzzle
+                     , RoundPhase
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , text

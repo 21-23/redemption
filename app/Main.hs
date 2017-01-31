@@ -52,6 +52,14 @@ app stateVar dbPipe connection = do
           updateState stateVar $ State.removeParticipant sessionId participantId
           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$pull" =: [ "participants" =: ["id" =: participantId] ] ]
           sendMessage connection FrontService $ ParticipantLeft sessionId participantId
+        SetPuzzleIndex sessionId puzzleIndex -> do
+          updateState stateVar $ State.setPuzzleIndex sessionId puzzleIndex
+          _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$set" =: [ "puzzleIndex" =: puzzleIndex ] ]
+          sendMessage connection FrontService $ PuzzleIndexChanged sessionId puzzleIndex
+        SetRoundPhase sessionId phase -> do
+          updateState stateVar $ State.setRoundPhase sessionId phase
+          _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$set" =: [ "roundPhase" =: show phase ] ]
+          sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
       Left err -> putStrLn err
 
 main :: IO ()
