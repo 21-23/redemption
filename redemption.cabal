@@ -45,6 +45,8 @@ executable redemption-exe
                      , text
                      , aeson
                      , mongoDB
+                     , timers
+                     , suspend
   default-language:    Haskell2010
 
 test-suite redemption-test

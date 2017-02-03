@@ -14,13 +14,17 @@ import Reference
 import RoundPhase
 import Puzzle
 
+startCountdownTime :: Integer
+startCountdownTime = 3
+
 data Session = Session
-  { sessionId    :: SessionRef
-  , gameMaster   :: Participant
-  , participants :: Map String Participant
-  , puzzles      :: [Puzzle]
-  , puzzleIndex  :: Int
-  , roundPhase   :: RoundPhase
+  { sessionId      :: SessionRef
+  , gameMaster     :: Participant
+  , participants   :: Map String Participant
+  , puzzles        :: [Puzzle]
+  , puzzleIndex    :: Int
+  , roundPhase     :: RoundPhase
+  , startCountdown :: Int
   }
 
 addParticipant :: Participant -> Session -> Session
@@ -36,6 +40,12 @@ setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }
 
 setRoundPhase :: RoundPhase -> Session -> Session
 setRoundPhase phase session = session { roundPhase = phase }
+
+setStartCountdown :: Int -> Session -> Session
+setStartCountdown value session = session { startCountdown = value }
+
+getStartCountdown :: Session -> Int
+getStartCountdown = startCountdown
 
 instance ToJSON Session where
   toJSON Session{sessionId, gameMaster, participants, puzzleIndex, roundPhase} = object

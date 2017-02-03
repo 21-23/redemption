@@ -27,6 +27,7 @@ data OutgoingMessage
   | ParticipantLeft SessionRef ParticipantRef
   | PuzzleIndexChanged SessionRef Int
   | RoundPhaseChanged SessionRef RoundPhase
+  | StartCountdownChanged SessionRef Int
 
 toName :: OutgoingMessage -> String
 toName (ArnauxCheckin _) = "checkin"
@@ -35,6 +36,7 @@ toName (ParticipantJoined _ _) = "session.participant.joined"
 toName (ParticipantLeft _ _) = "session.participant.left"
 toName (PuzzleIndexChanged _ _) = "session.puzzleIndex.changed"
 toName (RoundPhaseChanged _ _) = "session.roundPhase.changed"
+toName (StartCountdownChanged _ _) = "Session.startCountdown.changed"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -57,6 +59,11 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "roundPhase" .= phase
         ]
+      toValue (StartCountdownChanged sessionId value) =
+        [ "sessionId" .= sessionId
+        , "startCountdown" .= value
+        ]
+
 
 instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
