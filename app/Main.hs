@@ -40,11 +40,10 @@ startCountdownAction timer stateVar sessionId connection = do
   let countdownValue = State.getStartCountdown sessionId state
   case countdownValue of
     Just 0 -> do
-      stopTimer timer
       let phase = Game
       updateState stateVar $ State.setRoundPhase sessionId phase
-      sendMessage connection FrontService $ StartCountdownChanged sessionId 0
       sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
+      stopTimer timer
     Just value -> do
       let nextValue = value - 1
       updateState stateVar $ State.setStartCountdown sessionId nextValue
