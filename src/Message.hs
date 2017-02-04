@@ -19,6 +19,8 @@ data IncomingMessage
   | LeaveSession SessionRef ParticipantRef
   | SetPuzzleIndex SessionRef Int
   | SetRoundPhase SessionRef RoundPhase
+  | ParticipantInput SessionRef ParticipantRef String
+  | EvaluatedSolution SessionRef ParticipantRef String Bool
 
 data OutgoingMessage
   = ArnauxCheckin Identity
@@ -29,16 +31,22 @@ data OutgoingMessage
   | RoundPhaseChanged SessionRef RoundPhase
   | StartCountdownChanged SessionRef Int
   | RoundCountdownChanged SessionRef Int
+  | ParticipantInputChanged SessionRef ParticipantRef Int
+  | EvaluateSolution SessionRef ParticipantRef String
+  | SolutionEvaluated SessionRef ParticipantRef String Bool
 
 toName :: OutgoingMessage -> String
-toName (ArnauxCheckin _) = "checkin"
-toName (SessionCreated _) = "session.created"
-toName (ParticipantJoined _ _) = "session.participant.joined"
-toName (ParticipantLeft _ _) = "session.participant.left"
-toName (PuzzleIndexChanged _ _) = "session.puzzleIndex.changed"
-toName (RoundPhaseChanged _ _) = "session.roundPhase.changed"
-toName (StartCountdownChanged _ _) = "session.startCountdown.changed"
-toName (RoundCountdownChanged _ _) = "session.roundCountdown.changed"
+toName ArnauxCheckin {}           = "checkin"
+toName SessionCreated {}          = "session.created"
+toName ParticipantJoined {}       = "participant.joined"
+toName ParticipantLeft {}         = "participant.left"
+toName PuzzleIndexChanged {}      = "puzzleIndex.changed"
+toName RoundPhaseChanged {}       = "roundPhase.changed"
+toName StartCountdownChanged {}   = "startCountdown.changed"
+toName RoundCountdownChanged {}   = "roundCountdown.changed"
+toName EvaluateSolution {}        = "solution.evaluate"
+toName SolutionEvaluated {}       = "solution.evaluated"
+toName ParticipantInputChanged {} = "participant.input.changed"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -69,15 +77,42 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "roundCountdown" .= value
         ]
+      toValue (EvaluateSolution sessionId participantId solution) =
+        [ "sessionId" .= sessionId
+        , "participantId" .= participantId
+        , "solution" .= solution
+        ]
+      toValue (SolutionEvaluated sessionId participantId solution correct) =
+        [ "sessionId" .= sessionId
+        , "participantId" .= participantId
+        , "solution" .= solution
+        , "correct" .= correct
+        ]
+      toValue (ParticipantInputChanged sessionId participantId len) =
+        [ "sessionId" .= sessionId
+        , "participantId" .= participantId
+        , "length" .= len
+        ]
+
 
 instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
     name <- message .: "name"
     case name of
-      String "session.create" -> CreateSession <$> message .: "gameMaster"
-      String "session.join"   -> JoinSession <$> message .: "sessionId" <*> message .: "participant"
-      String "session.leave"  -> LeaveSession <$> message .: "sessionId" <*> message .: "participantId"
-      String "session.puzzleIndex.set" -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"
-      String "session.roundPhase.set"  -> SetRoundPhase <$> message .: "sessionId" <*> message .: "roundPhase"
+      String "session.create"          -> CreateSession  <$> message .: "gameMaster"
+      String "session.join"            -> JoinSession    <$> message .: "sessionId" <*> message .: "participant"
+      String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
+      String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"
+      String "roundPhase.set"          -> SetRoundPhase  <$> message .: "sessionId" <*> message .: "roundPhase"
+      String "participant.input"       -> ParticipantInput
+        <$> message .: "sessionId"
+        <*> message .: "participantId"
+        <*> message .: "solution"
+      String "solution.evaluated"      -> EvaluatedSolution
+        <$> message .: "sessionId"
+        <*> message .: "participantId"
+        <*> message .: "solution"
+        <*> message .: "result"
+
       _ -> fail "Unrecognized incoming message"
   parseJSON _ = mzero

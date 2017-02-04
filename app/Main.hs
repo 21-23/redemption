@@ -12,6 +12,8 @@ import           Data.Aeson
 import           Database.MongoDB
 import           Control.Concurrent.Timer
 import           Control.Concurrent.Suspend.Lifted
+import           Data.Time.Clock        (getCurrentTime)
+import qualified Data.Map               as Map
 
 import BSON
 import State (State)
@@ -19,8 +21,10 @@ import qualified State
 import Message
 import Identity
 import Envelope
+import Round (Round(..))
 import RoundPhase
 import Reference
+import Solution
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -102,11 +106,29 @@ app stateVar dbPipe connection = do
             Countdown -> do
               let countdownValue = 2
               updateState stateVar $ State.setStartCountdown sessionId countdownValue
-              sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
-              timer <- newTimer
-              _ <- repeatedStart timer (startCountdownAction timer stateVar sessionId connection) (sDelay 1)
-              sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
+              state <- readMVar stateVar
+              case State.getPuzzleIndex sessionId state of
+                Just puzzleIndex -> do
+                  currentTime <- getCurrentTime
+                  updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
+                  sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
+                  timer <- newTimer
+                  _ <- repeatedStart timer (startCountdownAction timer stateVar sessionId connection) (sDelay 1)
+                  sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
+                Nothing -> return ()
+
             _ -> sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
+        ParticipantInput sessionId participantId input -> do
+          updateState stateVar $ State.setParticipantInput sessionId participantId input
+          sendMessage connection FrontService $ ParticipantInputChanged sessionId participantId $ length input
+          sendMessage connection SandboxService $ EvaluateSolution sessionId participantId input
+        EvaluatedSolution sessionId participantId solution True -> do
+          currentTime <- getCurrentTime
+          updateState stateVar $ State.addSolution sessionId participantId $ Solution solution currentTime
+          sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution True
+        EvaluatedSolution sessionId participantId solution False ->
+          sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution False
+
       Left err -> putStrLn err
 
 main :: IO ()

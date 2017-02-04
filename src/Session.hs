@@ -7,12 +7,16 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Database.MongoDB
 import Data.Aeson
+import Data.Sequence (Seq, ViewR(..), (|>))
+import qualified Data.Sequence as Seq
 
 import BSON
 import Participant
 import Reference
 import RoundPhase
 import Puzzle
+import Round (Round(Round, solutions))
+import Solution (Solution)
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -20,8 +24,10 @@ startCountdownTime = 3
 data Session = Session
   { sessionId      :: SessionRef
   , gameMaster     :: Participant
-  , participants   :: Map String Participant
   , puzzles        :: [Puzzle]
+  , participants   :: Map ParticipantRef Participant
+  , rounds         :: Seq Round
+  , input          :: Map ParticipantRef String
   , puzzleIndex    :: Int
   , roundPhase     :: RoundPhase
   , startCountdown :: Int
@@ -39,6 +45,12 @@ removeParticipant participantId session@Session{participants} =
 setPuzzleIndex :: Int -> Session -> Session
 setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }
 
+getPuzzleIndex :: Session -> Int
+getPuzzleIndex = puzzleIndex
+
+addRound :: Round -> Session -> Session
+addRound newRound session@Session{rounds} = session { rounds = rounds |> newRound }
+
 setRoundPhase :: RoundPhase -> Session -> Session
 setRoundPhase phase session = session { roundPhase = phase }
 
@@ -53,6 +65,18 @@ setRoundCountdown value session = session { roundCountdown = value }
 
 getRoundCountdown :: Session -> Int
 getRoundCountdown = roundCountdown
+
+setParticipantInput :: ParticipantRef -> String -> Session -> Session
+setParticipantInput participantId string session@Session{input} =
+  session { input = Map.insert participantId string input }
+
+addSolution :: ParticipantRef -> Solution -> Session -> Session
+addSolution participantId solution session@Session{rounds} =
+  case Seq.viewr rounds of
+    EmptyR -> session
+    _ :> currentRound@Round{solutions} ->
+      session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
+        where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
 
 instance ToJSON Session where
   toJSON Session{sessionId, gameMaster, participants, puzzleIndex, roundPhase} = object

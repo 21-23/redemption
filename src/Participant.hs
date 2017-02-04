@@ -11,7 +11,7 @@ import BSON
 
 data Participant = Participant
   { participantId :: String
-  , name :: String
+  , name          :: String
   }
 
 instance ToJSON Participant where

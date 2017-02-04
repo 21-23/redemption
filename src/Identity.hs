@@ -10,17 +10,20 @@ data Identity
   = StateService
   | Messenger
   | FrontService
+  | SandboxService
 
 instance Show Identity where
-  show StateService = "state-service"
-  show Messenger    = "messenger"
-  show FrontService = "front-service"
+  show StateService   = "state-service"
+  show Messenger      = "messenger"
+  show FrontService   = "front-service"
+  show SandboxService = "sandbox-service"
 
 instance ToJSON Identity where
   toJSON = Aeson.String . pack . show
 
 parseIdentity :: String -> Maybe Identity
-parseIdentity "state-service" = Just StateService
-parseIdentity "messenger"     = Just Messenger
-parseIdentity "front-service" = Just FrontService
-parseIdentity _               = Nothing
+parseIdentity "state-service"   = Just StateService
+parseIdentity "messenger"       = Just Messenger
+parseIdentity "front-service"   = Just FrontService
+parseIdentity "sandbox-service" = Just SandboxService
+parseIdentity _                 = Nothing

@@ -24,12 +24,15 @@ library
                      , Identity
                      , Reference
                      , Puzzle
+                     , Round
                      , RoundPhase
+                     , Solution
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , text
                      , aeson
                      , mongoDB
+                     , time
   ghc-options:         -Wall -Werror
   default-language:    Haskell2010
 
@@ -47,6 +50,8 @@ executable redemption-exe
                      , mongoDB
                      , timers
                      , suspend
+                     , time
+                     , containers
   default-language:    Haskell2010
 
 test-suite redemption-test

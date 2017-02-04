@@ -1,6 +1,9 @@
 module Puzzle where
 
+import Reference
+
 data Puzzle = Puzzle
-  { name :: String
-  , input :: String
+  { puzzleId  :: PuzzleRef
+  , name      :: String
+  , inputData :: String
   }

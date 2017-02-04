@@ -5,11 +5,14 @@ module State where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 
 import Participant
 import Session
 import Reference
+import Round (Round)
 import RoundPhase
+import Solution
 
 data State = State { sessions :: Map SessionRef Session }
 
@@ -18,12 +21,14 @@ empty = State { sessions = Map.empty }
 
 createSession :: SessionRef -> Participant -> Session
 createSession sid gameMaster = Session
-  { sessionId = sid
+  { sessionId      = sid
   , gameMaster
-  , participants = Map.empty
-  , puzzles = []
-  , puzzleIndex = 0
-  , roundPhase = Idle
+  , puzzles        = []
+  , participants   = Map.empty
+  , rounds         = Seq.empty
+  , input          = Map.empty
+  , puzzleIndex    = 0
+  , roundPhase     = Idle
   , startCountdown = 0
   , roundCountdown = 0
   }
@@ -47,10 +52,20 @@ setPuzzleIndex sessionId index state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.setPuzzleIndex index
 
+getPuzzleIndex :: SessionRef -> State -> Maybe Int
+getPuzzleIndex sessionId State{sessions} = do
+  session <- Map.lookup sessionId sessions
+  return $ Session.getPuzzleIndex session
+
 setRoundPhase :: SessionRef -> RoundPhase -> State -> State
 setRoundPhase sessionId phase state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.setRoundPhase phase
+
+addRound :: SessionRef -> Round -> State -> State
+addRound sessionId newRound state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.addRound newRound
 
 setStartCountdown :: SessionRef -> Int -> State -> State
 setStartCountdown sessionId value state@State{sessions} =
@@ -71,3 +86,13 @@ getRoundCountdown :: SessionRef -> State -> Maybe Int
 getRoundCountdown sessionId State{sessions} = do
   session <- Map.lookup sessionId sessions
   return $ Session.getRoundCountdown session
+
+setParticipantInput :: SessionRef -> ParticipantRef -> String -> State -> State
+setParticipantInput sessionId participantId input state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setParticipantInput participantId input
+
+addSolution :: SessionRef -> ParticipantRef -> Solution -> State -> State
+addSolution sessionId participantId solution state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.addSolution participantId solution
