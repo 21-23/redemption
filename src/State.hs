@@ -25,6 +25,7 @@ createSession sid gameMaster = Session
   , puzzleIndex = 0
   , roundPhase = Idle
   , startCountdown = 0
+  , roundCountdown = 0
   }
 
 addSession :: Session -> State -> State
@@ -60,3 +61,13 @@ getStartCountdown :: SessionRef -> State -> Maybe Int
 getStartCountdown sessionId State{sessions} = do
   session <- Map.lookup sessionId sessions
   return $ Session.getStartCountdown session
+
+setRoundCountdown :: SessionRef -> Int -> State -> State
+setRoundCountdown sessionId value state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setRoundCountdown value
+
+getRoundCountdown :: SessionRef -> State -> Maybe Int
+getRoundCountdown sessionId State{sessions} = do
+  session <- Map.lookup sessionId sessions
+  return $ Session.getRoundCountdown session

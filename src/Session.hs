@@ -25,6 +25,7 @@ data Session = Session
   , puzzleIndex    :: Int
   , roundPhase     :: RoundPhase
   , startCountdown :: Int
+  , roundCountdown :: Int
   }
 
 addParticipant :: Participant -> Session -> Session
@@ -46,6 +47,12 @@ setStartCountdown value session = session { startCountdown = value }
 
 getStartCountdown :: Session -> Int
 getStartCountdown = startCountdown
+
+setRoundCountdown :: Int -> Session -> Session
+setRoundCountdown value session = session { roundCountdown = value }
+
+getRoundCountdown :: Session -> Int
+getRoundCountdown = roundCountdown
 
 instance ToJSON Session where
   toJSON Session{sessionId, gameMaster, participants, puzzleIndex, roundPhase} = object

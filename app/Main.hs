@@ -43,11 +43,30 @@ startCountdownAction timer stateVar sessionId connection = do
       let phase = Game
       updateState stateVar $ State.setRoundPhase sessionId phase
       sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
+      updateState stateVar $ State.setRoundCountdown sessionId 5
+      roundTimer <- newTimer
+      _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar sessionId connection) (sDelay 1)
       stopTimer timer
     Just value -> do
       let nextValue = value - 1
       updateState stateVar $ State.setStartCountdown sessionId nextValue
       sendMessage connection FrontService $ StartCountdownChanged sessionId nextValue
+    Nothing -> return ()
+
+roundCountdownAction :: Timer IO -> MVar State -> SessionRef -> WS.Connection -> IO ()
+roundCountdownAction timer stateVar sessionId connection = do
+  state <- readMVar stateVar
+  let countdownValue = State.getRoundCountdown sessionId state
+  case countdownValue of
+    Just 0 -> do
+      let phase = End
+      updateState stateVar $ State.setRoundPhase sessionId phase
+      sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
+      stopTimer timer
+    Just value -> do
+      let nextValue = value - 1
+      updateState stateVar $ State.setRoundCountdown sessionId nextValue
+      sendMessage connection FrontService $ RoundCountdownChanged sessionId nextValue
     Nothing -> return ()
 
 app :: MVar State -> Pipe -> WS.ClientApp ()
@@ -81,7 +100,7 @@ app stateVar dbPipe connection = do
           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$set" =: [ "roundPhase" =: show phase ] ]
           case phase of
             Countdown -> do
-              let countdownValue = 3
+              let countdownValue = 2
               updateState stateVar $ State.setStartCountdown sessionId countdownValue
               sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
               timer <- newTimer
