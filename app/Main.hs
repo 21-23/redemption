@@ -116,6 +116,10 @@ app stateVar dbPipe connection = do
                   _ <- repeatedStart timer (startCountdownAction timer stateVar sessionId connection) (sDelay 1)
                   sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
                 Nothing -> return ()
+            End -> do
+              state <- readMVar stateVar
+              let score = State.getLastRoundScore sessionId state
+              sendMessage connection FrontService $ RoundScore sessionId score
 
             _ -> sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
         ParticipantInput sessionId participantId input -> do

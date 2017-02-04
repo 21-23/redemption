@@ -9,14 +9,16 @@ import Database.MongoDB
 import Data.Aeson
 import Data.Sequence (Seq, ViewR(..), (|>))
 import qualified Data.Sequence as Seq
+import Data.Time.Clock
 
 import BSON
 import Participant
 import Reference
 import RoundPhase
 import Puzzle
-import Round (Round(Round, solutions))
+import Round (Round(Round, solutions, startTime))
 import Solution (Solution)
+import qualified Solution
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -77,6 +79,13 @@ addSolution participantId solution session@Session{rounds} =
     _ :> currentRound@Round{solutions} ->
       session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
         where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
+
+getLastRoundScore :: Session -> Map ParticipantRef NominalDiffTime
+getLastRoundScore Session{rounds} =
+  case Seq.viewr rounds of
+    EmptyR -> Map.empty
+    _ :> Round{startTime, solutions} ->
+      Map.map ((`diffUTCTime` startTime) . Solution.time) solutions
 
 instance ToJSON Session where
   toJSON Session{sessionId, gameMaster, participants, puzzleIndex, roundPhase} = object

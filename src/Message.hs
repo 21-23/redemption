@@ -6,6 +6,8 @@ module Message where
 import Control.Monad
 import Data.Aeson
 import Data.Semigroup
+import Data.Time.Clock
+import Data.Map
 
 import Identity
 import Participant
@@ -34,6 +36,7 @@ data OutgoingMessage
   | ParticipantInputChanged SessionRef ParticipantRef Int
   | EvaluateSolution SessionRef ParticipantRef String
   | SolutionEvaluated SessionRef ParticipantRef String Bool
+  | RoundScore SessionRef (Map ParticipantRef NominalDiffTime)
 
 toName :: OutgoingMessage -> String
 toName ArnauxCheckin {}           = "checkin"
@@ -47,6 +50,7 @@ toName RoundCountdownChanged {}   = "roundCountdown.changed"
 toName EvaluateSolution {}        = "solution.evaluate"
 toName SolutionEvaluated {}       = "solution.evaluated"
 toName ParticipantInputChanged {} = "participant.input.changed"
+toName RoundScore {}              = "round.score"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -92,6 +96,10 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
         , "length" .= len
+        ]
+      toValue (RoundScore sessionId score) =
+        [ "sessionId" .= sessionId
+        , "score" .= score
         ]
 
 
