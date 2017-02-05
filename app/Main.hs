@@ -14,7 +14,12 @@ import           Control.Concurrent.Timer
 import           Control.Concurrent.Suspend.Lifted
 import           Data.Time.Clock        (getCurrentTime)
 import qualified Data.Map               as Map
+import qualified Data.Yaml              as Yaml
+import           System.Environment
+import           Data.Maybe
 
+
+import qualified Config
 import BSON
 import State (State)
 import qualified State
@@ -138,6 +143,16 @@ app stateVar dbPipe connection = do
 
 main :: IO ()
 main = do
-  stateVar <- newMVar State.empty
-  pipe <- connect (host "127.0.0.1")
-  withSocketsDo $ WS.runClient "localhost" 3000 "/" $ app stateVar pipe
+  maybeEnv <- lookupEnv "redemption_environment"
+  let env = fromMaybe "dev" maybeEnv
+  maybeConfig <- Yaml.decodeFile ("conf/" ++ env ++ ".yaml")
+  case maybeConfig of
+    Just config -> do
+      stateVar <- newMVar State.empty
+      pipe <- connect $ host $ Config.mongoDBHost config
+      withSocketsDo $ WS.runClient
+        (Config.messengerHost config)
+        (Config.messengerPort config)
+        "/"
+        $ app stateVar pipe
+    Nothing -> fail ("Configuration file '" ++ env ++ "' was not found")

@@ -27,12 +27,14 @@ library
                      , Round
                      , RoundPhase
                      , Solution
+                     , Config
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , text
                      , aeson
                      , mongoDB
                      , time
+                     , yaml
   ghc-options:         -Wall -Werror
   default-language:    Haskell2010
 
@@ -52,6 +54,7 @@ executable redemption-exe
                      , suspend
                      , time
                      , containers
+                     , yaml
   default-language:    Haskell2010
 
 test-suite redemption-test

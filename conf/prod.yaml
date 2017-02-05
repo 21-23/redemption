@@ -1,0 +1,6 @@
+mongodb:
+  host: redemption-mongo
+
+messenger:
+  host: messenger
+  port: 80

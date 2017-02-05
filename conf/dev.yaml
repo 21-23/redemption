@@ -1,0 +1,6 @@
+mongodb:
+  host: 127.0.0.1
+
+messenger:
+  host: localhost
+  port: 3000
