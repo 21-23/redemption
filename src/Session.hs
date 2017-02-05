@@ -17,8 +17,8 @@ import Reference
 import RoundPhase
 import Puzzle
 import Round (Round(Round, solutions, startTime))
-import Solution (Solution)
-import qualified Solution
+import Solution (Solution(..))
+import qualified Solution()
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -80,12 +80,18 @@ addSolution participantId solution session@Session{rounds} =
       session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
         where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
 
+getParticipantScore :: Round -> Participant -> NominalDiffTime
+getParticipantScore Round{startTime, solutions} Participant{participantId}  =
+  case Map.lookup participantId solutions of
+    Just Solution{time} -> diffUTCTime time startTime
+    Nothing -> 5 -- 5 is a widely accepted fallback value
+
 getLastRoundScore :: Session -> Map ParticipantRef NominalDiffTime
-getLastRoundScore Session{rounds} =
+getLastRoundScore Session{participants, rounds} =
   case Seq.viewr rounds of
     EmptyR -> Map.empty
-    _ :> Round{startTime, solutions} ->
-      Map.map ((`diffUTCTime` startTime) . Solution.time) solutions
+    _ :> currentRound -> Map.map getScore participants
+      where getScore = getParticipantScore currentRound
 
 instance ToJSON Session where
   toJSON Session{sessionId, gameMaster, participants, puzzleIndex, roundPhase} = object
