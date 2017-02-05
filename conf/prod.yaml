@@ -1,5 +1,5 @@
 mongodb:
-  host: redemption-mongo
+  host: mongo-redemption
 
 messenger:
   host: messenger
