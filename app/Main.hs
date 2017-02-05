@@ -43,14 +43,21 @@ startCountdownAction timer stateVar sessionId connection = do
   state <- readMVar stateVar
   let countdownValue = State.getStartCountdown sessionId state
   case countdownValue of
-    Just 0 -> do
-      let phase = Game
-      updateState stateVar $ State.setRoundPhase sessionId phase
-      sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
-      updateState stateVar $ State.setRoundCountdown sessionId 5
-      roundTimer <- newTimer
-      _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar sessionId connection) (sDelay 1)
-      stopTimer timer
+    Just 0 ->
+      case State.getPuzzleIndex sessionId state of
+        Just puzzleIndex -> do
+          -- create a new round
+          currentTime <- getCurrentTime
+          updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
+          -- change phase to 'game'
+          updateState stateVar $ State.setRoundPhase sessionId Game
+          sendMessage connection FrontService $ RoundPhaseChanged sessionId Game
+          -- start round countdown
+          updateState stateVar $ State.setRoundCountdown sessionId 5
+          roundTimer <- newTimer
+          _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar sessionId connection) (sDelay 1)
+          stopTimer timer
+        Nothing -> return ()
     Just value -> do
       let nextValue = value - 1
       updateState stateVar $ State.setStartCountdown sessionId nextValue
@@ -102,20 +109,14 @@ app stateVar dbPipe connection = do
         SetRoundPhase sessionId phase -> do
           updateState stateVar $ State.setRoundPhase sessionId phase
           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$set" =: [ "roundPhase" =: show phase ] ]
+          sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
           case phase of
             Countdown -> do
               let countdownValue = 2
               updateState stateVar $ State.setStartCountdown sessionId countdownValue
-              state <- readMVar stateVar
-              case State.getPuzzleIndex sessionId state of
-                Just puzzleIndex -> do
-                  currentTime <- getCurrentTime
-                  updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
-                  sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
-                  timer <- newTimer
-                  _ <- repeatedStart timer (startCountdownAction timer stateVar sessionId connection) (sDelay 1)
-                  sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
-                Nothing -> return ()
+              timer <- newTimer
+              _ <- repeatedStart timer (startCountdownAction timer stateVar sessionId connection) (sDelay 1)
+              sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
             End -> do
               state <- readMVar stateVar
               let score = State.getLastRoundScore sessionId state

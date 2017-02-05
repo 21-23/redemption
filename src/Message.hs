@@ -115,12 +115,12 @@ instance FromJSON IncomingMessage where
       String "participant.input"       -> ParticipantInput
         <$> message .: "sessionId"
         <*> message .: "participantId"
-        <*> message .: "solution"
+        <*> message .: "input"
       String "solution.evaluated"      -> EvaluatedSolution
         <$> message .: "sessionId"
         <*> message .: "participantId"
         <*> message .: "solution"
-        <*> message .: "result"
+        <*> message .: "correct"
 
       _ -> fail "Unrecognized incoming message"
   parseJSON _ = mzero
