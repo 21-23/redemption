@@ -17,9 +17,10 @@ import qualified Data.Map               as Map
 import qualified Data.Yaml              as Yaml
 import           System.Environment
 import           Data.Maybe
+import           Control.Exception
 
 
-import qualified Config
+import Config
 import BSON
 import State (State)
 import qualified State
@@ -141,6 +142,15 @@ app stateVar dbPipe connection = do
 
       Left err -> putStrLn err
 
+connectToMessenger :: Config -> WS.ClientApp () -> IO ()
+connectToMessenger config@Config{messengerHost, messengerPort} clientApp =
+  catch
+    (withSocketsDo $ WS.runClient messengerHost messengerPort "/" clientApp)
+    (\exception -> do
+      print (exception :: IOException)
+      suspend $ msDelay 500
+      connectToMessenger config clientApp)
+
 main :: IO ()
 main = do
   maybeEnv <- lookupEnv "redemption_environment"
@@ -150,9 +160,5 @@ main = do
     Just config -> do
       stateVar <- newMVar State.empty
       pipe <- connect $ host $ Config.mongoDBHost config
-      withSocketsDo $ WS.runClient
-        (Config.messengerHost config)
-        (Config.messengerPort config)
-        "/"
-        $ app stateVar pipe
+      connectToMessenger config $ app stateVar pipe
     Nothing -> fail ("Configuration file '" ++ env ++ "' was not found")
