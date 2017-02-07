@@ -38,7 +38,7 @@ updateState stateVar action = do
   putMVar stateVar $ action state
 
 doMongoDBAction :: (MonadIO m) => Pipe -> Action m a -> m a
-doMongoDBAction pipe = access pipe master "redemption-test"
+doMongoDBAction pipe = access pipe master "_qd"
 
 sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
 sendMessage connection to message =
