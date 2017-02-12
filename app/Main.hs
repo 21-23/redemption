@@ -31,6 +31,7 @@ import Round (Round(..))
 import RoundPhase
 import Reference
 import Solution
+import Puzzle
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -139,6 +140,15 @@ app stateVar dbPipe connection = do
           sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution True
         EvaluatedSolution sessionId participantId solution False ->
           sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution False
+        CreatePuzzle puzzleData@Puzzle{puzzleId} -> do
+          puzzle <- case puzzleId of
+                      Just _ -> return puzzleData
+                      Nothing -> do
+                        oid <- genObjectId
+                        return puzzleData { puzzleId = Just $ show oid }
+          _ <- run $ insert "puzzles" $ toBSON puzzle
+          sendMessage connection FrontService $ PuzzleCreated puzzle
+
 
       Left err -> putStrLn err
 

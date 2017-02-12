@@ -14,6 +14,7 @@ import Participant
 import Session
 import Reference
 import RoundPhase
+import Puzzle
 
 data IncomingMessage
   = CreateSession Participant
@@ -23,6 +24,7 @@ data IncomingMessage
   | SetRoundPhase SessionRef RoundPhase
   | ParticipantInput SessionRef ParticipantRef String
   | EvaluatedSolution SessionRef ParticipantRef String Bool
+  | CreatePuzzle Puzzle
 
 data OutgoingMessage
   = ArnauxCheckin Identity
@@ -37,6 +39,7 @@ data OutgoingMessage
   | EvaluateSolution SessionRef ParticipantRef String
   | SolutionEvaluated SessionRef ParticipantRef String Bool
   | RoundScore SessionRef (Map ParticipantRef NominalDiffTime)
+  | PuzzleCreated Puzzle
 
 toName :: OutgoingMessage -> String
 toName ArnauxCheckin {}           = "checkin"
@@ -51,6 +54,7 @@ toName EvaluateSolution {}        = "solution.evaluate"
 toName SolutionEvaluated {}       = "solution.evaluated"
 toName ParticipantInputChanged {} = "participant.input.changed"
 toName RoundScore {}              = "round.score"
+toName PuzzleCreated {}           = "puzzle.created"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -101,6 +105,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "score" .= score
         ]
+      toValue (PuzzleCreated puzzle) = [ "puzzle" .= puzzle ]
 
 
 instance FromJSON IncomingMessage where
@@ -121,6 +126,7 @@ instance FromJSON IncomingMessage where
         <*> message .: "participantId"
         <*> message .: "solution"
         <*> message .: "correct"
+      String "puzzle.create"           -> CreatePuzzle   <$> message .: "puzzle"
 
       _ -> fail "Unrecognized incoming message"
   parseJSON _ = mzero

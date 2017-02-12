@@ -29,7 +29,7 @@ data Session = Session
   , puzzles        :: [Puzzle]
   , participants   :: Map ParticipantRef Participant
   , rounds         :: Seq Round
-  , input          :: Map ParticipantRef String
+  , playerInput    :: Map ParticipantRef String
   , puzzleIndex    :: Int
   , roundPhase     :: RoundPhase
   , startCountdown :: Int
@@ -69,8 +69,8 @@ getRoundCountdown :: Session -> Int
 getRoundCountdown = roundCountdown
 
 setParticipantInput :: ParticipantRef -> String -> Session -> Session
-setParticipantInput participantId string session@Session{input} =
-  session { input = Map.insert participantId string input }
+setParticipantInput participantId string session@Session{playerInput} =
+  session { playerInput = Map.insert participantId string playerInput }
 
 addSolution :: ParticipantRef -> Solution -> Session -> Session
 addSolution participantId solution session@Session{rounds} =
