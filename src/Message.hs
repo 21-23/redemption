@@ -12,33 +12,32 @@ import Data.Map
 import Identity
 import Participant
 import Session
-import Reference
 import RoundPhase
 import Puzzle
 
 data IncomingMessage
-  = CreateSession Participant
-  | JoinSession SessionRef Participant
-  | LeaveSession SessionRef ParticipantRef
-  | SetPuzzleIndex SessionRef Int
-  | SetRoundPhase SessionRef RoundPhase
-  | ParticipantInput SessionRef ParticipantRef String
-  | EvaluatedSolution SessionRef ParticipantRef String Bool
+  = CreateSession Participant [Puzzle]
+  | JoinSession SessionId Participant
+  | LeaveSession SessionId ParticipantUid
+  | SetPuzzleIndex SessionId Int
+  | SetRoundPhase SessionId RoundPhase
+  | ParticipantInput SessionId ParticipantUid String
+  | EvaluatedSolution SessionId ParticipantUid String Bool
   | CreatePuzzle Puzzle
 
 data OutgoingMessage
   = ArnauxCheckin Identity
   | SessionCreated Session
-  | ParticipantJoined SessionRef Participant
-  | ParticipantLeft SessionRef ParticipantRef
-  | PuzzleIndexChanged SessionRef Int
-  | RoundPhaseChanged SessionRef RoundPhase
-  | StartCountdownChanged SessionRef Int
-  | RoundCountdownChanged SessionRef Int
-  | ParticipantInputChanged SessionRef ParticipantRef Int
-  | EvaluateSolution SessionRef ParticipantRef String
-  | SolutionEvaluated SessionRef ParticipantRef String Bool
-  | RoundScore SessionRef (Map ParticipantRef NominalDiffTime)
+  | ParticipantJoined SessionId Participant
+  | ParticipantLeft SessionId ParticipantUid
+  | PuzzleIndexChanged SessionId Int
+  | RoundPhaseChanged SessionId RoundPhase
+  | StartCountdownChanged SessionId Int
+  | RoundCountdownChanged SessionId Int
+  | ParticipantInputChanged SessionId ParticipantUid Int
+  | EvaluateSolution SessionId ParticipantUid String
+  | SolutionEvaluated SessionId ParticipantUid String Bool
+  | RoundScore SessionId (Map ParticipantUid NominalDiffTime)
   | PuzzleCreated Puzzle
 
 toName :: OutgoingMessage -> String
@@ -112,7 +111,7 @@ instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
     name <- message .: "name"
     case name of
-      String "session.create"          -> CreateSession  <$> message .: "gameMaster"
+      String "session.create"          -> CreateSession  <$> message .: "gameMaster" <*> message .: "puzzles"
       String "session.join"            -> JoinSession    <$> message .: "sessionId" <*> message .: "participant"
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"

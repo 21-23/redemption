@@ -1,51 +1,31 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Puzzle where
 
-import Control.Monad
-import Data.Time.Clock (NominalDiffTime)
-import Data.Aeson
-import Database.MongoDB
+import Language.Haskell.TH.Syntax
+import Database.Persist.TH
+import Database.Persist.MongoDB
 
-import BSON
-import Reference
+import Data.Text
+import Data.Time.Clock (NominalDiffTime)
+
+import NominalDiffTimePersistField()
 import SandboxSettings
 
-data Puzzle = Puzzle
-  { puzzleId        :: Maybe PuzzleRef
-  , name            :: String
-  , input           :: String
-  , expected        :: String
-  , timeLimit       :: NominalDiffTime
-  , sandboxSettings :: SandboxSettings
-  }
-
-instance FromJSON Puzzle where
-  parseJSON (Object puzzle) = Puzzle
-    <$> puzzle .:? "id"
-    <*> puzzle .: "name"
-    <*> puzzle .: "input"
-    <*> puzzle .: "expected"
-    <*> puzzle .: "timeLimit"
-    <*> puzzle .: "sandboxSettings"
-  parseJSON _ = mzero
-
-instance ToJSON Puzzle where
-  toJSON Puzzle {puzzleId, name, input, expected, sandboxSettings} =
-    object [
-      "id" .= puzzleId,
-      "name" .= name,
-      "input" .= input,
-      "expected" .= expected,
-      "sandboxSettings" .= sandboxSettings
-    ]
-
-instance ToBSON Puzzle where
-  toBSON Puzzle {puzzleId, name, input, expected, sandboxSettings} =
-    [ "_id" =: puzzleId
-    , "name" =: name
-    , "input" =: input
-    , "expected" =: expected
-    , "sandboxSettings" =: toBSON sandboxSettings
-    ]
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) {mpsGeneric = False}
+ in share [mkPersist mongoSettings] [persistLowerCase|
+Puzzle json
+  name            Text
+  input           Text
+  expected        Text
+  timeLimit       NominalDiffTime
+  sandboxSettings SandboxSettings
+|]

@@ -20,15 +20,14 @@ library
                      , Session
                      , Participant
                      , Envelope
-                     , BSON
                      , Identity
-                     , Reference
                      , Puzzle
                      , Round
                      , RoundPhase
                      , Solution
                      , Config
                      , SandboxSettings
+                     , NominalDiffTimePersistField
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , text
@@ -36,6 +35,10 @@ library
                      , mongoDB
                      , time
                      , yaml
+                     , template-haskell
+                     , persistent
+                     , persistent-template
+                     , persistent-mongoDB
   ghc-options:         -Wall -Werror
   default-language:    Haskell2010
 
@@ -56,6 +59,9 @@ executable redemption-exe
                      , time
                      , containers
                      , yaml
+                     , persistent
+                     , persistent-mongoDB
+                     , monad-control
   default-language:    Haskell2010
 
 test-suite redemption-test

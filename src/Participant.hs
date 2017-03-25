@@ -1,31 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Participant where
 
-import Control.Monad
-import Data.Aeson
-import Database.MongoDB
+import Language.Haskell.TH.Syntax
+import Database.Persist.TH
+import Database.Persist.MongoDB
 
-import BSON
+import Data.Text
 
-data Participant = Participant
-  { participantId :: String
-  , name          :: String
-  }
+type ParticipantUid = Text
 
-instance ToJSON Participant where
-  toJSON Participant {participantId, name} =
-    object [
-      "id" .= participantId,
-      "name" .= name
-      ]
-
-instance FromJSON Participant where
-  parseJSON (Object participant) = Participant
-    <$> participant .: "id"
-    <*> participant .: "name"
-  parseJSON _ = mzero
-
-instance ToBSON Participant where
-  toBSON Participant {participantId, name} = [ "id" =: participantId, "name" =: name ]
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) {mpsGeneric = False}
+ in share [mkPersist mongoSettings] [persistLowerCase|
+Participant json
+  uid ParticipantUid
+  name Text
+|]

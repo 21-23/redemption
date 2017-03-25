@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module RoundPhase where
 
@@ -8,12 +9,15 @@ import Data.Text (pack, toLower)
 import Data.Aeson (ToJSON, FromJSON, Value(String))
 import qualified Data.Aeson as Aeson
 
+import Database.Persist.TH
+
 data RoundPhase
   = Idle
   | Countdown
   | Game
   | End
-  deriving (Show)
+  deriving (Eq, Show, Read)
+derivePersistField "RoundPhase"
 
 instance ToJSON RoundPhase where
   toJSON = String . toLower . pack . show

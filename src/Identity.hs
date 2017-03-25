@@ -11,12 +11,14 @@ data Identity
   | Messenger
   | FrontService
   | SandboxService
+  | InitService
 
 instance Show Identity where
   show StateService   = "state-service"
   show Messenger      = "messenger"
   show FrontService   = "front-service"
   show SandboxService = "sandbox-service"
+  show InitService    = "init-service"
 
 instance ToJSON Identity where
   toJSON = Aeson.String . pack . show
@@ -26,4 +28,5 @@ parseIdentity "state-service"   = Just StateService
 parseIdentity "messenger"       = Just Messenger
 parseIdentity "front-service"   = Just FrontService
 parseIdentity "sandbox-service" = Just SandboxService
+parseIdentity "init-service"    = Just InitService
 parseIdentity _                 = Nothing
