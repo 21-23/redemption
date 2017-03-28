@@ -37,10 +37,13 @@ addSession :: Session -> SessionId -> State -> State
 addSession session sessionId state@State{sessions} =
   state { sessions = Map.insert sessionId session sessions }
 
--- addParticipant :: SessionId -> Participant -> State -> State
--- addParticipant sessionId participant state@State{sessions} =
---   state { sessions = Map.adjust add sessionId sessions }
---     where add = Session.addParticipant participant
+getSession :: SessionId -> State -> Maybe Session
+getSession sessionId State{sessions} = Map.lookup sessionId sessions
+
+addParticipant :: SessionId -> ParticipantUid -> State -> State
+addParticipant sessionId participantId state@State{sessions} =
+  state { sessions = Map.adjust add sessionId sessions }
+    where add = Session.addParticipant $ Participant participantId
 --
 -- removeParticipant :: SessionId -> ParticipantRef -> State -> State
 -- removeParticipant sessionId participantId state@State{sessions} =

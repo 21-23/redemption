@@ -14,10 +14,11 @@ import Participant
 import Session
 import RoundPhase
 import Puzzle
+import Role
 
 data IncomingMessage
   = CreateSession Participant [Puzzle]
-  | JoinSession SessionId Participant
+  | JoinSession SessionId ParticipantUid
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId Int
   | SetRoundPhase SessionId RoundPhase
@@ -27,8 +28,8 @@ data IncomingMessage
 
 data OutgoingMessage
   = ArnauxCheckin Identity
-  | SessionCreated Session
-  | ParticipantJoined SessionId Participant
+  | SessionCreated SessionId
+  | ParticipantJoined SessionId ParticipantUid Role
   | ParticipantLeft SessionId ParticipantUid
   | PuzzleIndexChanged SessionId Int
   | RoundPhaseChanged SessionId RoundPhase
@@ -59,10 +60,11 @@ instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
     where
       toValue (ArnauxCheckin identity) = ["identity" .= identity]
-      toValue (SessionCreated session) = ["session" .= session]
-      toValue (ParticipantJoined sessionId participant) =
+      toValue (SessionCreated sessionId) = ["sessionId" .= sessionId]
+      toValue (ParticipantJoined sessionId participantId role) =
         [ "sessionId" .= sessionId
-        , "participant" .= participant
+        , "participantId" .= participantId
+        , "role" .= role
         ]
       toValue (ParticipantLeft sessionId participantId) =
         [ "sessionId" .= sessionId
@@ -112,7 +114,7 @@ instance FromJSON IncomingMessage where
     name <- message .: "name"
     case name of
       String "session.create"          -> CreateSession  <$> message .: "gameMaster" <*> message .: "puzzles"
-      String "session.join"            -> JoinSession    <$> message .: "sessionId" <*> message .: "participant"
+      String "session.join"            -> JoinSession    <$> message .: "sessionId" <*> message .: "participantId"
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"
       String "roundPhase.set"          -> SetRoundPhase  <$> message .: "sessionId" <*> message .: "roundPhase"

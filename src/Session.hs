@@ -12,7 +12,7 @@ module Session where
 
 import Data.Text
 import Data.Map (Map)
--- import qualified Data.Map as Map
+import qualified Data.Map as Map
 import Database.MongoDB
 -- import Data.Aeson
 -- import Data.Sequence (Seq, ViewR(..), (|>))
@@ -20,14 +20,15 @@ import Database.MongoDB
 -- import Data.Time.Clock
 -- import Data.Foldable
 
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
--- import Database.Persist.MongoDB
 
 import Participant
 import RoundPhase
 import Puzzle
 import Round
+import Role (Role)
+import qualified Role
 -- import Solution (Solution(..))
 import qualified Solution()
 
@@ -48,9 +49,17 @@ Session json
     roundCountdown Int
 |]
 
--- addParticipant :: Participant -> Session -> Session
--- addParticipant participant@Participant{participantId} session@Session{participants} =
---   session { participants = Map.insert participantId participant participants }
+addParticipant :: Participant -> Session -> Session
+addParticipant participant@Participant{uid} session@Session{participants} =
+  session { participants = Map.insert uid participant participants }
+
+getParticipantRole :: ParticipantUid -> Session -> Role
+getParticipantRole participantId session =
+  let gameMasterId = uid $ gameMaster session
+   in if participantId == gameMasterId
+    then Role.GameMaster
+    else Role.Player
+
 --
 -- removeParticipant :: ParticipantRef -> Session -> Session
 -- removeParticipant participantId session@Session{participants} =

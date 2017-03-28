@@ -30,10 +30,10 @@ import qualified State
 import Message
 import Identity
 import Envelope
+import Session
 -- import Round (Round(..))
 -- import RoundPhase
 -- import Solution
-import Puzzle
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -97,13 +97,27 @@ app stateVar pool connection = do
     string <- WS.receiveData connection
     case eitherDecode string :: Either String (Envelope IncomingMessage) of
       Right Envelope {message} -> case message of
+
         CreateSession gameMaster _ -> do
-          puzzles <- run $ selectList ([] :: [Filter Puzzle]) []
+          puzzles <- run $ selectList [] []
           let session = State.createSession gameMaster (entityVal <$> puzzles)
           sessionId <- run $ insert session
           updateState stateVar $ State.addSession session sessionId
-          sendMessage connection FrontService $ SessionCreated session
+          sendMessage connection FrontService $ SessionCreated sessionId
+
+        JoinSession sessionId participantId -> do
+          updateState stateVar $ State.addParticipant sessionId participantId
+          state <- readMVar stateVar
+          case State.getSession sessionId state of
+            Just session -> do
+              run $ update sessionId [Participants =. participants session]
+              let role = Session.getParticipantRole participantId session
+                  participantData = ParticipantJoined sessionId participantId role
+              sendMessage connection FrontService participantData
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+
         _ -> return ()
+
       Left err -> putStrLn err
 
 -- app :: MVar State -> Pipe -> WS.ClientApp ()

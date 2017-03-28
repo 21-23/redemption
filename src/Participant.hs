@@ -18,9 +18,8 @@ import Data.Text
 
 type ParticipantUid = Text
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) {mpsGeneric = False}
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Participant json
   uid ParticipantUid
-  name Text
 |]

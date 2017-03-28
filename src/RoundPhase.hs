@@ -3,12 +3,10 @@
 
 module RoundPhase where
 
-import Prelude hiding (String)
 import Control.Monad
 import Data.Text (pack, toLower)
-import Data.Aeson (ToJSON, FromJSON, Value(String))
-import qualified Data.Aeson as Aeson
 
+import Data.Aeson
 import Database.Persist.TH
 
 data RoundPhase
