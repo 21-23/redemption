@@ -60,7 +60,6 @@ getParticipantRole participantId session =
     then Role.GameMaster
     else Role.Player
 
---
 -- removeParticipant :: ParticipantRef -> Session -> Session
 -- removeParticipant participantId session@Session{participants} =
 --   session { participants = Map.delete participantId participants }

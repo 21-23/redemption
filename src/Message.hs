@@ -17,7 +17,7 @@ import Puzzle
 import Role
 
 data IncomingMessage
-  = CreateSession Participant [Puzzle]
+  = CreateSession Participant [PuzzleId]
   | JoinSession SessionId ParticipantUid
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId Int
@@ -39,7 +39,7 @@ data OutgoingMessage
   | EvaluateSolution SessionId ParticipantUid String
   | SolutionEvaluated SessionId ParticipantUid String Bool
   | RoundScore SessionId (Map ParticipantUid NominalDiffTime)
-  | PuzzleCreated Puzzle
+  | PuzzleCreated PuzzleId
 
 toName :: OutgoingMessage -> String
 toName ArnauxCheckin {}           = "checkin"
@@ -106,7 +106,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "score" .= score
         ]
-      toValue (PuzzleCreated puzzle) = [ "puzzle" .= puzzle ]
+      toValue (PuzzleCreated puzzleId) = [ "puzzleId" .= puzzleId ]
 
 
 instance FromJSON IncomingMessage where

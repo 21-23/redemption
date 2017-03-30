@@ -31,6 +31,7 @@ import Message
 import Identity
 import Envelope
 import Session
+import Puzzle
 -- import Round (Round(..))
 -- import RoundPhase
 -- import Solution
@@ -92,16 +93,20 @@ sendMessage connection to message =
 app :: MVar State -> ConnectionPool -> WS.ClientApp ()
 app stateVar pool connection = do
   WS.sendTextData connection $ encode $ Envelope Messenger (ArnauxCheckin StateService)
-  let run = runMongoDBAction pool
+  let mongo = runMongoDBAction pool
   forever $ do
     string <- WS.receiveData connection
     case eitherDecode string :: Either String (Envelope IncomingMessage) of
       Right Envelope {message} -> case message of
 
-        CreateSession gameMaster _ -> do
-          puzzles <- run $ selectList [] []
+        CreatePuzzle puzzle -> do
+          puzzleId <- mongo $ insert puzzle
+          sendMessage connection InitService $ PuzzleCreated puzzleId
+
+        CreateSession gameMaster puzzleIds -> do
+          puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
           let session = State.createSession gameMaster (entityVal <$> puzzles)
-          sessionId <- run $ insert session
+          sessionId <- mongo $ insert session
           updateState stateVar $ State.addSession session sessionId
           sendMessage connection FrontService $ SessionCreated sessionId
 
@@ -110,7 +115,7 @@ app stateVar pool connection = do
           state <- readMVar stateVar
           case State.getSession sessionId state of
             Just session -> do
-              run $ update sessionId [Participants =. participants session]
+              mongo $ update sessionId [Participants =. participants session]
               let role = Session.getParticipantRole participantId session
                   participantData = ParticipantJoined sessionId participantId role
               sendMessage connection FrontService participantData
