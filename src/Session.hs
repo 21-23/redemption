@@ -38,7 +38,7 @@ startCountdownTime = 3
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
-    gameMaster Participant
+    gameMaster ParticipantUid
     puzzles [Puzzle]
     participants (Map ParticipantUid Participant)
     rounds [Round]
@@ -55,8 +55,7 @@ addParticipant participant@Participant{uid} session@Session{participants} =
 
 getParticipantRole :: ParticipantUid -> Session -> Role
 getParticipantRole participantId session =
-  let gameMasterId = uid $ gameMaster session
-   in if participantId == gameMasterId
+  if participantId == gameMaster session
     then Role.GameMaster
     else Role.Player
 

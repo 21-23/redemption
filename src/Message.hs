@@ -17,7 +17,7 @@ import Puzzle
 import Role
 
 data IncomingMessage
-  = CreateSession Participant [PuzzleId]
+  = CreateSession ParticipantUid [PuzzleId]
   | JoinSession SessionId ParticipantUid
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId Int
@@ -113,7 +113,7 @@ instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
     name <- message .: "name"
     case name of
-      String "session.create"          -> CreateSession  <$> message .: "gameMaster" <*> message .: "puzzles"
+      String "session.create"          -> CreateSession  <$> message .: "gameMasterId" <*> message .: "puzzles"
       String "session.join"            -> JoinSession    <$> message .: "sessionId" <*> message .: "participantId"
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"

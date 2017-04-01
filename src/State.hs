@@ -20,9 +20,9 @@ data State = State { sessions :: Map SessionId Session }
 empty :: State
 empty = State { sessions = Map.empty }
 
-createSession :: Participant -> [Puzzle] -> Session
-createSession gameMaster puzzles = Session
-  { gameMaster
+createSession :: ParticipantUid -> [Puzzle] -> Session
+createSession gameMasterId puzzles = Session
+  { gameMaster     = gameMasterId
   , puzzles
   , participants   = Map.empty
   , rounds         = []

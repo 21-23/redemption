@@ -103,9 +103,9 @@ app stateVar pool connection = do
           puzzleId <- mongo $ insert puzzle
           sendMessage connection InitService $ PuzzleCreated puzzleId
 
-        CreateSession gameMaster puzzleIds -> do
+        CreateSession gameMasterId puzzleIds -> do
           puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
-          let session = State.createSession gameMaster (entityVal <$> puzzles)
+          let session = State.createSession gameMasterId (entityVal <$> puzzles)
           sessionId <- mongo $ insert session
           updateState stateVar $ State.addSession session sessionId
           sendMessage connection FrontService $ SessionCreated sessionId
