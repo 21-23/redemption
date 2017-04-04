@@ -122,6 +122,15 @@ app stateVar pool connection = do
               sendMessage connection FrontService $ PlayerSessionState sessionId participantId session
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
+        LeaveSession sessionId participantId -> do
+          updateState stateVar $ State.removeParticipant sessionId participantId
+          state <- readMVar stateVar
+          case State.getSession sessionId state of
+            Just session -> do
+              mongo $ update sessionId [Participants =. participants session]
+              sendMessage connection FrontService $ ParticipantLeft sessionId participantId
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+
         _ -> return ()
 
       Left err -> putStrLn err

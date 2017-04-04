@@ -59,9 +59,9 @@ getParticipantRole participantId session =
     then Role.GameMaster
     else Role.Player
 
--- removeParticipant :: ParticipantRef -> Session -> Session
--- removeParticipant participantId session@Session{participants} =
---   session { participants = Map.delete participantId participants }
+removeParticipant :: ParticipantUid -> Session -> Session
+removeParticipant participantId session@Session{participants} =
+  session { participants = Map.delete participantId participants }
 --
 -- setPuzzleIndex :: Int -> Session -> Session
 -- setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }

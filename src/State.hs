@@ -44,11 +44,11 @@ addParticipant :: SessionId -> ParticipantUid -> State -> State
 addParticipant sessionId participantId state@State{sessions} =
   state { sessions = Map.adjust add sessionId sessions }
     where add = Session.addParticipant $ Participant participantId
---
--- removeParticipant :: SessionId -> ParticipantRef -> State -> State
--- removeParticipant sessionId participantId state@State{sessions} =
---   state { sessions = Map.adjust remove sessionId sessions }
---     where remove = Session.removeParticipant participantId
+
+removeParticipant :: SessionId -> ParticipantUid -> State -> State
+removeParticipant sessionId participantId state@State{sessions} =
+  state { sessions = Map.adjust remove sessionId sessions }
+    where remove = Session.removeParticipant participantId
 --
 -- setPuzzleIndex :: SessionId -> Int -> State -> State
 -- setPuzzleIndex sessionId index state@State{sessions} =
