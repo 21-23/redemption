@@ -15,7 +15,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Database.MongoDB
 -- import Data.Aeson
--- import Data.Sequence (Seq, ViewR(..), (|>))
+import Data.Sequence (Seq)
 -- import qualified Data.Sequence as Seq
 -- import Data.Time.Clock
 -- import Data.Foldable
@@ -29,6 +29,7 @@ import Puzzle
 import Round
 import Role (Role)
 import qualified Role
+import SequencePersistField()
 -- import Solution (Solution(..))
 import qualified Solution()
 
@@ -39,9 +40,9 @@ let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = Fal
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
     gameMaster ParticipantUid
-    puzzles [Puzzle]
+    puzzles (Seq Puzzle)
     participants (Map ParticipantUid Participant)
-    rounds [Round]
+    rounds (Seq Round)
     playerInput (Map ParticipantUid Text)
     puzzleIndex Int
     roundPhase RoundPhase

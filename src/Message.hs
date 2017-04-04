@@ -11,6 +11,7 @@ import Data.Time.Clock
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import qualified Data.Sequence as Seq
 
 import Identity
 import Participant
@@ -117,7 +118,7 @@ instance ToJSON OutgoingMessage where
         , "participantId" .= playerId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= (length $ puzzles session)
-        , "puzzle" .= puzzles session !! puzzleIndex session
+        , "puzzle" .=  Seq.lookup (puzzleIndex session) (puzzles session)
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session

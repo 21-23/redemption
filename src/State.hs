@@ -5,7 +5,7 @@ module State where
 
 import Data.Map (Map)
 import qualified Data.Map as Map
--- import qualified Data.Sequence as Seq
+import qualified Data.Sequence as Seq
 -- import Data.Time.Clock
 
 import Participant
@@ -21,11 +21,11 @@ empty :: State
 empty = State { sessions = Map.empty }
 
 createSession :: ParticipantUid -> [Puzzle] -> Session
-createSession gameMasterId puzzles = Session
+createSession gameMasterId puzzleList = Session
   { gameMaster     = gameMasterId
-  , puzzles
+  , puzzles        = Seq.fromList puzzleList
   , participants   = Map.empty
-  , rounds         = []
+  , rounds         = Seq.empty
   , playerInput    = Map.empty
   , puzzleIndex    = 0
   , roundPhase     = Idle

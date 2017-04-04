@@ -28,9 +28,10 @@ library
                      , Config
                      , SandboxSettings
                      , NominalDiffTimePersistField
+                     , SequencePersistField
                      , Role
   build-depends:       base >= 4.7 && < 5
-                     , containers
+                     , containers >= 0.5.10.2
                      , text
                      , aeson
                      , mongoDB
@@ -58,7 +59,7 @@ executable redemption-exe
                      , timers
                      , suspend
                      , time
-                     , containers
+                     , containers >= 0.5.10.2
                      , yaml
                      , persistent
                      , persistent-mongoDB
