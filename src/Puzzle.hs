@@ -10,7 +10,7 @@
 
 module Puzzle where
 
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
 import Database.Persist.MongoDB
 
@@ -18,9 +18,9 @@ import Data.Text
 import Data.Time.Clock (NominalDiffTime)
 
 import NominalDiffTimePersistField()
-import SandboxSettings
+import SandboxSettings (SandboxSettings)
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) {mpsGeneric = False}
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Puzzle json
   name            Text

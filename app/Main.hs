@@ -138,7 +138,10 @@ app stateVar pool connection = do
           case State.getSession sessionId state of
             Just session -> do
               mongo $ update sessionId [PuzzleIndex =. Session.puzzleIndex session]
-              sendMessage connection FrontService $ PuzzleIndexChanged sessionId puzzleIndex
+              case Session.lookupPuzzle puzzleIndex session of
+                Just puzzle -> do
+                  sendMessage connection FrontService $ PuzzleChanged sessionId puzzleIndex puzzle
+                Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         _ -> return ()

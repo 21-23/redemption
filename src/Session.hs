@@ -10,18 +10,18 @@
 
 module Session where
 
-import Data.Text
+import Data.Text (Text)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Database.MongoDB
 -- import Data.Aeson
 import Data.Sequence (Seq)
--- import qualified Data.Sequence as Seq
+import qualified Data.Sequence as Seq
 -- import Data.Time.Clock
 -- import Data.Foldable
 
 import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
+import Database.Persist.MongoDB
 
 import Participant
 import RoundPhase
@@ -66,6 +66,9 @@ removeParticipant participantId session@Session{participants} =
 
 setPuzzleIndex :: Int -> Session -> Session
 setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }
+
+lookupPuzzle :: Int -> Session -> Maybe Puzzle
+lookupPuzzle index session = Seq.lookup index (puzzles session)
 --
 -- addRound :: Round -> Session -> Session
 -- addRound newRound session@Session{rounds} = session { rounds = rounds |> newRound }

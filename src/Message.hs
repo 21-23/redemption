@@ -35,7 +35,7 @@ data OutgoingMessage
   | SessionCreated SessionId
   | ParticipantJoined SessionId ParticipantUid Role
   | ParticipantLeft SessionId ParticipantUid
-  | PuzzleIndexChanged SessionId Int
+  | PuzzleChanged SessionId Int Puzzle
   | RoundPhaseChanged SessionId RoundPhase
   | StartCountdownChanged SessionId Int
   | RoundCountdownChanged SessionId Int
@@ -51,7 +51,7 @@ toName ArnauxCheckin {}           = "checkin"
 toName SessionCreated {}          = "session.created"
 toName ParticipantJoined {}       = "participant.joined"
 toName ParticipantLeft {}         = "participant.left"
-toName PuzzleIndexChanged {}      = "puzzleIndex.changed"
+toName PuzzleChanged {}           = "puzzle.changed"
 toName RoundPhaseChanged {}       = "roundPhase.changed"
 toName StartCountdownChanged {}   = "startCountdown.changed"
 toName RoundCountdownChanged {}   = "roundCountdown.changed"
@@ -76,9 +76,11 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
         ]
-      toValue (PuzzleIndexChanged sessionId puzzleIndex) =
+      toValue (PuzzleChanged sessionId puzzleIndex puzzle) =
         [ "sessionId" .= sessionId
         , "puzzleIndex" .= puzzleIndex
+        , "puzzleName" .= name puzzle
+        , "timeLimit" .= timeLimit puzzle
         ]
       toValue (RoundPhaseChanged sessionId phase) =
         [ "sessionId" .= sessionId
