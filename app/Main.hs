@@ -30,7 +30,8 @@ import qualified State
 import Message
 import Identity
 import Envelope
-import Session
+import Session (EntityField(..))
+import qualified Session as Session
 import Puzzle
 -- import Round (Round(..))
 -- import RoundPhase
@@ -115,7 +116,7 @@ app stateVar pool connection = do
           state <- readMVar stateVar
           case State.getSession sessionId state of
             Just session -> do
-              mongo $ update sessionId [Participants =. participants session]
+              mongo $ update sessionId [Participants =. Session.participants session]
               let role = Session.getParticipantRole participantId session
                   participantData = ParticipantJoined sessionId participantId role
               sendMessage connection FrontService participantData
@@ -127,8 +128,17 @@ app stateVar pool connection = do
           state <- readMVar stateVar
           case State.getSession sessionId state of
             Just session -> do
-              mongo $ update sessionId [Participants =. participants session]
+              mongo $ update sessionId [Participants =. Session.participants session]
               sendMessage connection FrontService $ ParticipantLeft sessionId participantId
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+
+        SetPuzzleIndex sessionId puzzleIndex -> do
+          updateState stateVar $ State.setPuzzleIndex sessionId puzzleIndex
+          state <- readMVar stateVar
+          case State.getSession sessionId state of
+            Just session -> do
+              mongo $ update sessionId [PuzzleIndex =. Session.puzzleIndex session]
+              sendMessage connection FrontService $ PuzzleIndexChanged sessionId puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         _ -> return ()
@@ -224,6 +234,6 @@ main = do
   case maybeConfig of
     Just config -> do
       stateVar <- newMVar State.empty
-      withMongoDBConn "_qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2000 $ \pool ->
+      withMongoDBPool "_qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2 1 20000 $ \pool ->
         connectToMessenger config $ app stateVar pool
     Nothing -> fail ("Configuration file '" ++ env ++ "' was not found")

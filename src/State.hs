@@ -50,10 +50,10 @@ removeParticipant sessionId participantId state@State{sessions} =
   state { sessions = Map.adjust remove sessionId sessions }
     where remove = Session.removeParticipant participantId
 --
--- setPuzzleIndex :: SessionId -> Int -> State -> State
--- setPuzzleIndex sessionId index state@State{sessions} =
---   state { sessions = Map.adjust modify sessionId sessions }
---     where modify = Session.setPuzzleIndex index
+setPuzzleIndex :: SessionId -> Int -> State -> State
+setPuzzleIndex sessionId index state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setPuzzleIndex index
 --
 -- getPuzzleIndex :: SessionId -> State -> Maybe Int
 -- getPuzzleIndex sessionId State{sessions} = do

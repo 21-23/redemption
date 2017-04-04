@@ -63,12 +63,9 @@ getParticipantRole participantId session =
 removeParticipant :: ParticipantUid -> Session -> Session
 removeParticipant participantId session@Session{participants} =
   session { participants = Map.delete participantId participants }
---
--- setPuzzleIndex :: Int -> Session -> Session
--- setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }
---
--- getPuzzleIndex :: Session -> Int
--- getPuzzleIndex = puzzleIndex
+
+setPuzzleIndex :: Int -> Session -> Session
+setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }
 --
 -- addRound :: Round -> Session -> Session
 -- addRound newRound session@Session{rounds} = session { rounds = rounds |> newRound }
