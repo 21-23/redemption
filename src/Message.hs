@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Message where
 
@@ -7,7 +8,9 @@ import Control.Monad
 import Data.Aeson
 import Data.Semigroup
 import Data.Time.Clock
-import Data.Map
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 
 import Identity
 import Participant
@@ -40,6 +43,7 @@ data OutgoingMessage
   | SolutionEvaluated SessionId ParticipantUid String Bool
   | RoundScore SessionId (Map ParticipantUid NominalDiffTime)
   | PuzzleCreated PuzzleId
+  | PlayerSessionState SessionId ParticipantUid Session
 
 toName :: OutgoingMessage -> String
 toName ArnauxCheckin {}           = "checkin"
@@ -55,6 +59,7 @@ toName SolutionEvaluated {}       = "solution.evaluated"
 toName ParticipantInputChanged {} = "participant.input.changed"
 toName RoundScore {}              = "round.score"
 toName PuzzleCreated {}           = "puzzle.created"
+toName PlayerSessionState {}      = "player.sessionState"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -107,7 +112,17 @@ instance ToJSON OutgoingMessage where
         , "score" .= score
         ]
       toValue (PuzzleCreated puzzleId) = [ "puzzleId" .= puzzleId ]
-
+      toValue (PlayerSessionState sessionId playerId session) =
+        [ "sessionId" .= sessionId
+        , "participantId" .= playerId
+        , "puzzleIndex" .= puzzleIndex session
+        , "puzzleCount" .= (length $ puzzles session)
+        , "puzzle" .= puzzles session !! puzzleIndex session
+        , "roundPhase" .= roundPhase session
+        , "roundCountdown" .= roundCountdown session
+        , "startCountdown" .= startCountdown session
+        , "playerInput" .= fromMaybe "" (Map.lookup playerId $ playerInput session)
+        ]
 
 instance FromJSON IncomingMessage where
   parseJSON (Object message) = do

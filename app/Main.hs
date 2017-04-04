@@ -119,6 +119,7 @@ app stateVar pool connection = do
               let role = Session.getParticipantRole participantId session
                   participantData = ParticipantJoined sessionId participantId role
               sendMessage connection FrontService participantData
+              sendMessage connection FrontService $ PlayerSessionState sessionId participantId session
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         _ -> return ()
