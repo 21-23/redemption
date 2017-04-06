@@ -41,6 +41,7 @@ library
                      , persistent
                      , persistent-template
                      , persistent-mongoDB
+                     , convertible
   ghc-options:         -Wall -Werror
   default-language:    Haskell2010
 
@@ -64,6 +65,7 @@ executable redemption-exe
                      , persistent
                      , persistent-mongoDB
                      , monad-control
+                     , convertible
   default-language:    Haskell2010
 
 test-suite redemption-test

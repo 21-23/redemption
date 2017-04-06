@@ -22,6 +22,8 @@ import qualified Data.Yaml              as Yaml
 import           System.Environment
 import           Data.Maybe
 import           Control.Exception
+import           Data.Convertible.Base
+import           Data.Convertible.Instances.Time()
 
 
 import Config
@@ -47,53 +49,68 @@ sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
 sendMessage connection to message =
   WS.sendTextData connection $ encode $ Envelope to message
 
-startCountdownAction :: Timer IO -> MVar State -> SessionId -> WS.Connection -> IO ()
-startCountdownAction timer stateVar sessionId connection = do
+startCountdownAction :: Timer IO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
+startCountdownAction timer stateVar pool sessionId connection = do
+  let mongo = runMongoDBAction pool
   state <- readMVar stateVar
   let countdownValue = State.getStartCountdown sessionId state
   case countdownValue of
     Just 0 ->
       case State.getPuzzleIndex sessionId state of
         Just puzzleIndex -> do
-          -- create a new round
-          currentTime <- getCurrentTime
-          updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
-          -- change phase to 'game'
-          updateState stateVar $ State.setRoundPhase sessionId InProgress
-          sendMessage connection FrontService $ RoundPhaseChanged sessionId InProgress
-          let maybePuzzle = State.getSession sessionId state >>= Session.lookupPuzzle puzzleIndex
-          case maybePuzzle of
-            Just puzzle -> do
-              -- send round puzzle
-              sendMessage connection FrontService $ RoundPuzzle sessionId puzzle
-              -- start round countdown
-              updateState stateVar $ State.setRoundCountdown sessionId 180
-              roundTimer <- newTimer
-              _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar sessionId connection) (sDelay 1)
-              stopTimer timer -- has to be the last statement because it kills the thread
+          case State.getSession sessionId state of
+            Just session -> do
+              -- create a new round
+              currentTime <- getCurrentTime
+              updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
+              mongo $ update sessionId [Rounds =. Session.rounds session]
+              -- change phase to 'game'
+              updateState stateVar $ State.setRoundPhase sessionId InProgress
+              mongo $ update sessionId [RoundPhase =. InProgress]
+              sendMessage connection FrontService $ RoundPhaseChanged sessionId InProgress
+
+              let maybePuzzle = State.getSession sessionId state >>= Session.lookupPuzzle puzzleIndex
+              case maybePuzzle of
+                Just puzzle -> do
+                  -- send round puzzle
+                  sendMessage connection FrontService $ RoundPuzzle sessionId puzzle
+                  -- start round countdown
+                  let roundCountdownValue = convert $ timeLimit puzzle
+                  updateState stateVar $ State.setRoundCountdown sessionId roundCountdownValue
+                  mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
+                  roundTimer <- newTimer
+                  _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar pool sessionId connection) (sDelay 1)
+                  stopTimer timer -- has to be the last statement because it kills the thread
+                Nothing -> do
+                  putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
+                  stopTimer timer -- has to be the last statement because it kills the thread
+
             Nothing -> do
-              putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
+              putStrLn $ "Session not found: " ++ show sessionId
               stopTimer timer -- has to be the last statement because it kills the thread
-        Nothing -> return ()
+
+        Nothing -> stopTimer timer -- has to be the last statement because it kills the thread
     Just value -> do
       let nextValue = value - 1
       updateState stateVar $ State.setStartCountdown sessionId nextValue
       sendMessage connection FrontService $ StartCountdownChanged sessionId nextValue
     Nothing -> return ()
 
-roundCountdownAction :: Timer IO -> MVar State -> SessionId -> WS.Connection -> IO ()
-roundCountdownAction timer stateVar sessionId connection = do
+roundCountdownAction :: Timer IO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
+roundCountdownAction timer stateVar pool sessionId connection = do
+  let mongo = runMongoDBAction pool
   state <- readMVar stateVar
   let countdownValue = State.getRoundCountdown sessionId state
   case countdownValue of
     Just 0 -> do
-      let phase = End
-      updateState stateVar $ State.setRoundPhase sessionId phase
-      sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
+      updateState stateVar $ State.setRoundPhase sessionId End
+      mongo $ update sessionId [RoundPhase =. End]
+      sendMessage connection FrontService $ RoundPhaseChanged sessionId End
       stopTimer timer -- has to be the last statement because it kills the thread
     Just value -> do
       let nextValue = value - 1
       updateState stateVar $ State.setRoundCountdown sessionId nextValue
+      mongo $ update sessionId [RoundCountdown =. nextValue]
       sendMessage connection FrontService $ RoundCountdownChanged sessionId nextValue
     Nothing -> return ()
 
@@ -176,8 +193,9 @@ app stateVar pool connection = do
                   sendMessage connection FrontService $ RoundPhaseChanged sessionId Countdown
                   let countdownValue = 2
                   updateState stateVar $ State.setStartCountdown sessionId countdownValue
+                  mongo $ update sessionId [StartCountdown =. countdownValue]
                   timer <- newTimer
-                  _ <- repeatedStart timer (startCountdownAction timer stateVar sessionId connection) (sDelay 1)
+                  _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionId connection) (sDelay 1)
                   sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
                 Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
@@ -186,23 +204,6 @@ app stateVar pool connection = do
 
       Left err -> putStrLn err
 
---         SetRoundPhase sessionId phase -> do
---           updateState stateVar $ State.setRoundPhase sessionId phase
---           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$set" =: [ "roundPhase" =: show phase ] ]
---           sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
---           case phase of
---             Countdown -> do
---               let countdownValue = 2
---               updateState stateVar $ State.setStartCountdown sessionId countdownValue
---               timer <- newTimer
---               _ <- repeatedStart timer (startCountdownAction timer stateVar sessionId connection) (sDelay 1)
---               sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
---             End -> do
---               state <- readMVar stateVar
---               let score = State.getLastRoundScore sessionId state
---               sendMessage connection FrontService $ RoundScore sessionId score
---
---             _ -> sendMessage connection FrontService $ RoundPhaseChanged sessionId phase
 --         ParticipantInput sessionId participantId input -> do
 --           updateState stateVar $ State.setParticipantInput sessionId participantId input
 --           sendMessage connection FrontService $ ParticipantInputChanged sessionId participantId $ length input
