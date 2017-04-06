@@ -37,13 +37,11 @@ import Puzzle
 -- import RoundPhase
 -- import Solution
 
+
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
   state <- takeMVar stateVar
   putMVar stateVar $ action state
-
--- doMongoDBAction :: (MonadIO m) => Pipe -> Action m a -> m a
--- doMongoDBAction pipe = access pipe master "_qd"
 
 sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
 sendMessage connection to message =
@@ -108,14 +106,26 @@ app stateVar pool connection = do
           puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
           let session = State.createSession gameMasterId (entityVal <$> puzzles)
           sessionId <- mongo $ insert session
+          mongo $ repsert sessionId session
           updateState stateVar $ State.addSession session sessionId
           sendMessage connection InitService $ SessionCreated sessionId
 
         JoinSession sessionId participantId -> do
-          updateState stateVar $ State.addParticipant sessionId participantId
           state <- readMVar stateVar
-          case State.getSession sessionId state of
+          let stateSession = State.getSession sessionId state
+          maybeSession <- case stateSession of
+            Just s -> pure $ Just s
+            Nothing -> do
+              dbSession <- mongo $ get sessionId
+              case dbSession of
+                Just session -> do
+                  updateState stateVar $ State.addSession session sessionId
+                  return $ Just session
+                Nothing -> return Nothing
+
+          case maybeSession of
             Just session -> do
+              updateState stateVar $ State.addParticipant sessionId participantId
               mongo $ update sessionId [Participants =. Session.participants session]
               let role = Session.getParticipantRole participantId session
                   participantData = ParticipantJoined sessionId participantId role
@@ -148,36 +158,6 @@ app stateVar pool connection = do
 
       Left err -> putStrLn err
 
--- app :: MVar State -> Pipe -> WS.ClientApp ()
--- app stateVar dbPipe connection = do
---   WS.sendTextData connection $ encode $ Envelope Messenger (ArnauxCheckin StateService)
---   let run = doMongoDBAction dbPipe
---   forever $ do
---     string <- WS.receiveData connection
---     case eitherDecode string :: Either String (Envelope IncomingMessage) of
---       Right Envelope {message} -> case message of
---         -- PuzzleRef -> IO (Maybe Document)
---         -- mapM ::  (b -> a c) -> [b] -> a [c]
---         -- c = Maybe Document
---         CreateSession gameMaster puzzleIds -> do
---           puzzles <- catMaybes <$> mapM (\pId -> run $ findOne $ select ["_id" =: pId] "puzzles") puzzleIds
---           oid <- genObjectId
---           let session = State.createSession (show oid) gameMaster puzzles
---           updateState stateVar $ State.addSession session
---           _ <- run $ insert "sessions" $ toBSON session
---           sendMessage connection FrontService $ SessionCreated session
---         JoinSession sessionId participant -> do
---           updateState stateVar $ State.addParticipant sessionId participant
---           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$push" =: [ "participants" =: toBSON participant] ]
---           sendMessage connection FrontService $ ParticipantJoined sessionId participant
---         LeaveSession sessionId participantId -> do
---           updateState stateVar $ State.removeParticipant sessionId participantId
---           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$pull" =: [ "participants" =: ["id" =: participantId] ] ]
---           sendMessage connection FrontService $ ParticipantLeft sessionId participantId
---         SetPuzzleIndex sessionId puzzleIndex -> do
---           updateState stateVar $ State.setPuzzleIndex sessionId puzzleIndex
---           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$set" =: [ "puzzleIndex" =: puzzleIndex ] ]
---           sendMessage connection FrontService $ PuzzleIndexChanged sessionId puzzleIndex
 --         SetRoundPhase sessionId phase -> do
 --           updateState stateVar $ State.setRoundPhase sessionId phase
 --           _ <- run $ modify (select ["_id" =: sessionId] "sessions") [ "$set" =: [ "roundPhase" =: show phase ] ]
@@ -205,16 +185,6 @@ app stateVar pool connection = do
 --           sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution True
 --         EvaluatedSolution sessionId participantId solution False ->
 --           sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution False
---         CreatePuzzle puzzleData@Puzzle{puzzleId} -> do
---           puzzle <- case puzzleId of
---                       Just _ -> return puzzleData
---                       Nothing -> do
---                         oid <- genObjectId
---                         return puzzleData { puzzleId = Just $ show oid }
---           _ <- run $ insert "puzzles" $ toBSON puzzle
---           sendMessage connection InitService $ PuzzleCreated puzzle
---
---
 --       Left err -> putStrLn err
 
 connectToMessenger :: Config -> WS.ClientApp () -> IO ()
