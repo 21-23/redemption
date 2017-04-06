@@ -14,7 +14,7 @@ import Data.Text (Text)
 import Data.Map (Map)
 import qualified Data.Map as Map
 -- import Data.Aeson
-import Data.Sequence (Seq)
+import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 -- import Data.Time.Clock
 -- import Data.Foldable
@@ -69,25 +69,22 @@ setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }
 
 lookupPuzzle :: Int -> Session -> Maybe Puzzle
 lookupPuzzle index session = Seq.lookup index (puzzles session)
---
--- addRound :: Round -> Session -> Session
--- addRound newRound session@Session{rounds} = session { rounds = rounds |> newRound }
---
--- setRoundPhase :: RoundPhase -> Session -> Session
--- setRoundPhase phase session = session { roundPhase = phase }
---
--- setStartCountdown :: Int -> Session -> Session
--- setStartCountdown value session = session { startCountdown = value }
---
--- getStartCountdown :: Session -> Int
--- getStartCountdown = startCountdown
---
--- setRoundCountdown :: Int -> Session -> Session
--- setRoundCountdown value session = session { roundCountdown = value }
---
--- getRoundCountdown :: Session -> Int
--- getRoundCountdown = roundCountdown
---
+
+addRound :: Round -> Session -> Session
+addRound newRound session@Session{rounds} = session { rounds = rounds |> newRound }
+
+setRoundPhase :: RoundPhase -> Session -> Session
+setRoundPhase phase session = session { roundPhase = phase }
+
+setStartCountdown :: Int -> Session -> Session
+setStartCountdown value session = session { startCountdown = value }
+
+getStartCountdown :: Session -> Int
+getStartCountdown = startCountdown
+
+setRoundCountdown :: Int -> Session -> Session
+setRoundCountdown value session = session { roundCountdown = value }
+
 -- setParticipantInput :: ParticipantRef -> String -> Session -> Session
 -- setParticipantInput participantId string session@Session{playerInput} =
 --   session { playerInput = Map.insert participantId string playerInput }

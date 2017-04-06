@@ -10,7 +10,7 @@ import qualified Data.Sequence as Seq
 
 import Participant
 import Session
--- import Round (Round)
+import Round (Round)
 import RoundPhase
 -- import Solution
 import Puzzle
@@ -49,46 +49,46 @@ removeParticipant :: SessionId -> ParticipantUid -> State -> State
 removeParticipant sessionId participantId state@State{sessions} =
   state { sessions = Map.adjust remove sessionId sessions }
     where remove = Session.removeParticipant participantId
---
+
 setPuzzleIndex :: SessionId -> Int -> State -> State
 setPuzzleIndex sessionId index state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.setPuzzleIndex index
+
+getPuzzleIndex :: SessionId -> State -> Maybe Int
+getPuzzleIndex sessionId State{sessions} = do
+  session <- Map.lookup sessionId sessions
+  return $ Session.puzzleIndex session
+
+setRoundPhase :: SessionId -> RoundPhase -> State -> State
+setRoundPhase sessionId phase state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setRoundPhase phase
+
+addRound :: SessionId -> Round -> State -> State
+addRound sessionId newRound state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.addRound newRound
 --
--- getPuzzleIndex :: SessionId -> State -> Maybe Int
--- getPuzzleIndex sessionId State{sessions} = do
---   session <- Map.lookup sessionId sessions
---   return $ Session.getPuzzleIndex session
---
--- setRoundPhase :: SessionId -> RoundPhase -> State -> State
--- setRoundPhase sessionId phase state@State{sessions} =
---   state { sessions = Map.adjust modify sessionId sessions }
---     where modify = Session.setRoundPhase phase
---
--- addRound :: SessionId -> Round -> State -> State
--- addRound sessionId newRound state@State{sessions} =
---   state { sessions = Map.adjust modify sessionId sessions }
---     where modify = Session.addRound newRound
---
--- setStartCountdown :: SessionId -> Int -> State -> State
--- setStartCountdown sessionId value state@State{sessions} =
---   state { sessions = Map.adjust modify sessionId sessions }
---     where modify = Session.setStartCountdown value
---
--- getStartCountdown :: SessionId -> State -> Maybe Int
--- getStartCountdown sessionId State{sessions} = do
---   session <- Map.lookup sessionId sessions
---   return $ Session.getStartCountdown session
---
--- setRoundCountdown :: SessionId -> Int -> State -> State
--- setRoundCountdown sessionId value state@State{sessions} =
---   state { sessions = Map.adjust modify sessionId sessions }
---     where modify = Session.setRoundCountdown value
---
--- getRoundCountdown :: SessionId -> State -> Maybe Int
--- getRoundCountdown sessionId State{sessions} = do
---   session <- Map.lookup sessionId sessions
---   return $ Session.getRoundCountdown session
+setStartCountdown :: SessionId -> Int -> State -> State
+setStartCountdown sessionId value state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setStartCountdown value
+
+getStartCountdown :: SessionId -> State -> Maybe Int
+getStartCountdown sessionId State{sessions} = do
+  session <- Map.lookup sessionId sessions
+  return $ Session.getStartCountdown session
+
+setRoundCountdown :: SessionId -> Int -> State -> State
+setRoundCountdown sessionId value state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setRoundCountdown value
+
+getRoundCountdown :: SessionId -> State -> Maybe Int
+getRoundCountdown sessionId State{sessions} = do
+  session <- Map.lookup sessionId sessions
+  return $ Session.roundCountdown session
 --
 -- setParticipantInput :: SessionId -> ParticipantRef -> String -> State -> State
 -- setParticipantInput sessionId participantId input state@State{sessions} =
