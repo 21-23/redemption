@@ -207,6 +207,18 @@ app stateVar pool connection = do
                 Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
+        StopRound sessionId -> do
+          state <- readMVar stateVar
+          case State.getSession sessionId state of
+            Just _ -> do
+              State.stopTimers sessionId state
+              updateState stateVar $ State.setRoundPhase sessionId End
+              mongo $ update sessionId [RoundPhase =. End]
+              sendMessage connection FrontService $ RoundPhaseChanged sessionId End
+              sendMessage connection SandboxService ResetSandbox
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+
+
         _ -> return ()
 
       Left err -> putStrLn err

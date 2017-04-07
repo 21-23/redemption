@@ -26,6 +26,7 @@ data IncomingMessage
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId Int
   | StartRound SessionId
+  | StopRound SessionId
   | ParticipantInput SessionId ParticipantUid String
   | EvaluatedSolution SessionId ParticipantUid String Bool
   | CreatePuzzle Puzzle
@@ -38,6 +39,7 @@ data OutgoingMessage
   | PuzzleChanged SessionId Int Puzzle
   | RoundPhaseChanged SessionId RoundPhase
   | SetSandbox Puzzle
+  | ResetSandbox
   | StartCountdownChanged SessionId Int
   | RoundCountdownChanged SessionId Int
   | RoundPuzzle SessionId Puzzle
@@ -56,6 +58,7 @@ toName ParticipantLeft {}         = "participant.left"
 toName PuzzleChanged {}           = "puzzle.changed"
 toName RoundPhaseChanged {}       = "roundPhase.changed"
 toName SetSandbox {}              = "sandbox.set"
+toName ResetSandbox {}            = "sandbox.reset"
 toName StartCountdownChanged {}   = "startCountdown.changed"
 toName RoundCountdownChanged {}   = "roundCountdown.changed"
 toName RoundPuzzle {}             = "puzzle"
@@ -102,6 +105,7 @@ instance ToJSON OutgoingMessage where
         [ "input" .= input puzzle
         , "settings" .= sandboxSettings puzzle
         ]
+      toValue ResetSandbox = []
       toValue (RoundPuzzle sessionId puzzle) =
         [ "sessionId" .= sessionId
         , "input" .= input puzzle
@@ -149,6 +153,7 @@ instance FromJSON IncomingMessage where
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"
       String "round.start"             -> StartRound     <$> message .: "sessionId"
+      String "round.stop"              -> StopRound      <$> message .: "sessionId"
       String "participant.input"       -> ParticipantInput
         <$> message .: "sessionId"
         <*> message .: "participantId"

@@ -6,7 +6,7 @@ module State where
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
--- import Data.Time.Clock
+import           Data.Maybe (fromMaybe)
 import           Control.Concurrent.Timer
 
 import Participant
@@ -53,6 +53,11 @@ getStartTimer sessionId State{timers} = startTimer <$> Map.lookup sessionId time
 
 getRoundTimer :: SessionId -> State -> Maybe TimerIO
 getRoundTimer sessionId State{timers} = roundTimer <$> Map.lookup sessionId timers
+
+stopTimers :: SessionId -> State -> IO ()
+stopTimers sessionId state = do
+  fromMaybe (return ()) $ stopTimer <$> getStartTimer sessionId state
+  fromMaybe (return ()) $ stopTimer <$> getRoundTimer sessionId state
 
 addSession :: Session -> SessionId -> SessionTimers -> State -> State
 addSession session sessionId sessionTimers state@State{sessions,timers} =
