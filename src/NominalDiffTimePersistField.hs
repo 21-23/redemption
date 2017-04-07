@@ -13,7 +13,7 @@ instance PersistFieldSql NominalDiffTime where
   sqlType _ = SqlReal
 
 instance PersistField NominalDiffTime where
-  toPersistValue timeDiff = PersistInt64 $ fromInteger $ convert timeDiff
+  toPersistValue = PersistInt64 . fromInteger . convert
 
   fromPersistValue (PersistInt64 value) = Right $ convert $ toInteger value
   fromPersistValue value = Left $ pack ("Failed to parse value" ++ show value)
