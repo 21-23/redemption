@@ -42,6 +42,7 @@ library
                      , persistent-template
                      , persistent-mongoDB
                      , convertible
+                     , timers
   ghc-options:         -Wall -Werror
   default-language:    Haskell2010
 

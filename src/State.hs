@@ -3,10 +3,11 @@
 
 module State where
 
-import Data.Map (Map)
+import           Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 -- import Data.Time.Clock
+import           Control.Concurrent.Timer
 
 import Participant
 import Session
@@ -15,10 +16,18 @@ import RoundPhase
 -- import Solution
 import Puzzle
 
-data State = State { sessions :: Map SessionId Session }
+data State = State
+  { sessions :: Map SessionId Session
+  , timers   :: Map SessionId SessionTimers
+  }
+
+data SessionTimers = SessionTimers
+  { startTimer :: TimerIO
+  , roundTimer :: TimerIO
+  }
 
 empty :: State
-empty = State { sessions = Map.empty }
+empty = State { sessions = Map.empty, timers = Map.empty }
 
 createSession :: ParticipantUid -> [Puzzle] -> Session
 createSession gameMasterId puzzleList = Session
@@ -33,9 +42,23 @@ createSession gameMasterId puzzleList = Session
   , roundCountdown = 0
   }
 
-addSession :: Session -> SessionId -> State -> State
-addSession session sessionId state@State{sessions} =
-  state { sessions = Map.insert sessionId session sessions }
+createTimers :: IO SessionTimers
+createTimers = do
+  startTmr <- newTimer
+  roundTmr <- newTimer
+  return $ SessionTimers startTmr roundTmr
+
+getStartTimer :: SessionId -> State -> Maybe TimerIO
+getStartTimer sessionId State{timers} = startTimer <$> Map.lookup sessionId timers
+
+getRoundTimer :: SessionId -> State -> Maybe TimerIO
+getRoundTimer sessionId State{timers} = roundTimer <$> Map.lookup sessionId timers
+
+addSession :: Session -> SessionId -> SessionTimers -> State -> State
+addSession session sessionId sessionTimers state@State{sessions,timers} =
+  state { sessions = Map.insert sessionId session sessions
+        , timers = Map.insert sessionId sessionTimers timers
+        }
 
 getSession :: SessionId -> State -> Maybe Session
 getSession sessionId State{sessions} = Map.lookup sessionId sessions

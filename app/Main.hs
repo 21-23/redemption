@@ -49,7 +49,7 @@ sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
 sendMessage connection to message =
   WS.sendTextData connection $ encode $ Envelope to message
 
-startCountdownAction :: Timer IO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
+startCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
 startCountdownAction timer stateVar pool sessionId connection = do
   let mongo = runMongoDBAction pool
   state <- readMVar stateVar
@@ -78,8 +78,11 @@ startCountdownAction timer stateVar pool sessionId connection = do
                   let roundCountdownValue = convert $ timeLimit puzzle
                   updateState stateVar $ State.setRoundCountdown sessionId roundCountdownValue
                   mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
-                  roundTimer <- newTimer
-                  _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar pool sessionId connection) (sDelay 1)
+                  case State.getRoundTimer sessionId state of
+                    Just rountTimer -> do
+                      _ <- repeatedStart rountTimer (roundCountdownAction rountTimer stateVar pool sessionId connection) (sDelay 1)
+                      return ()
+                    Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                   stopTimer timer -- has to be the last statement because it kills the thread
                 Nothing -> do
                   putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
@@ -96,7 +99,7 @@ startCountdownAction timer stateVar pool sessionId connection = do
       sendMessage connection FrontService $ StartCountdownChanged sessionId nextValue
     Nothing -> return ()
 
-roundCountdownAction :: Timer IO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
+roundCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
 roundCountdownAction timer stateVar pool sessionId connection = do
   let mongo = runMongoDBAction pool
   state <- readMVar stateVar
@@ -132,7 +135,8 @@ app stateVar pool connection = do
           let session = State.createSession gameMasterId (entityVal <$> puzzles)
           sessionId <- mongo $ insert session
           mongo $ repsert sessionId session
-          updateState stateVar $ State.addSession session sessionId
+          sessionTimers <- State.createTimers
+          updateState stateVar $ State.addSession session sessionId sessionTimers
           sendMessage connection InitService $ SessionCreated sessionId
 
         JoinSession sessionId participantId -> do
@@ -144,7 +148,8 @@ app stateVar pool connection = do
               dbSession <- mongo $ get sessionId
               case dbSession of
                 Just session -> do
-                  updateState stateVar $ State.addSession session sessionId
+                  sessionTimers <- State.createTimers
+                  updateState stateVar $ State.addSession session sessionId sessionTimers
                   return $ Just session
                 Nothing -> return Nothing
 
@@ -194,9 +199,11 @@ app stateVar pool connection = do
                   let countdownValue = 2
                   updateState stateVar $ State.setStartCountdown sessionId countdownValue
                   mongo $ update sessionId [StartCountdown =. countdownValue]
-                  timer <- newTimer
-                  _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionId connection) (sDelay 1)
-                  sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
+                  case State.getStartTimer sessionId state of
+                    Just timer -> do
+                      _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionId connection) (sDelay 1)
+                      sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
+                    Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                 Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
