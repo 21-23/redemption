@@ -26,7 +26,7 @@ import Database.Persist.MongoDB
 import Participant
 import RoundPhase
 import Puzzle
-import Round
+import Round (Round)
 import Role (Role)
 import qualified Role
 import SequencePersistField()

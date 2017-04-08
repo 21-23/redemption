@@ -17,7 +17,7 @@ import Database.Persist.MongoDB
 import Data.Text
 import Data.Time.Clock
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) {mpsGeneric = False}
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Solution json
     code Text

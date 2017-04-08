@@ -18,7 +18,7 @@ import NominalDiffTimePersistField()
 
 import Data.Time.Clock (NominalDiffTime)
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) {mpsGeneric = False}
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 SandboxSettings json
   timeout       NominalDiffTime

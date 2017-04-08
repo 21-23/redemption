@@ -20,7 +20,7 @@ import Data.Map (Map)
 import Participant
 import Solution
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) {mpsGeneric = False}
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Round json
     puzzleIndex Int
