@@ -51,6 +51,18 @@ sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
 sendMessage connection to message =
   WS.sendTextData connection $ encode $ Envelope to message
 
+stopRound :: MVar State -> ConnectionPool -> WS.Connection -> SessionId -> IO ()
+stopRound stateVar pool connection sessionId = do
+  let mongo = runMongoDBAction pool
+  state <- readMVar stateVar
+  case State.getSession sessionId state of
+    Just _ -> do
+      updateState stateVar $ (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
+      mongo $ update sessionId [RoundPhase =. End]
+      sendMessage connection FrontService $ RoundPhaseChanged sessionId End
+      sendMessage connection SandboxService ResetSandbox
+    Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+
 startCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
 startCountdownAction timer stateVar pool sessionId connection = do
   let mongo = runMongoDBAction pool
@@ -108,15 +120,15 @@ roundCountdownAction timer stateVar pool sessionId connection = do
   let countdownValue = State.getRoundCountdown sessionId state
   case countdownValue of
     Just 0 -> do
-      updateState stateVar $ State.setRoundPhase sessionId End
-      mongo $ update sessionId [RoundPhase =. End]
-      sendMessage connection FrontService $ RoundPhaseChanged sessionId End
+      stopRound stateVar pool connection sessionId
       stopTimer timer -- has to be the last statement because it kills the thread
+
     Just value -> do
       let nextValue = value - 1
       updateState stateVar $ State.setRoundCountdown sessionId nextValue
       mongo $ update sessionId [RoundCountdown =. nextValue]
       sendMessage connection FrontService $ RoundCountdownChanged sessionId nextValue
+
     Nothing -> return ()
 
 app :: MVar State -> ConnectionPool -> WS.ClientApp ()
@@ -211,14 +223,8 @@ app stateVar pool connection = do
 
         StopRound sessionId -> do
           state <- readMVar stateVar
-          case State.getSession sessionId state of
-            Just _ -> do
-              State.stopTimers sessionId state
-              updateState stateVar $ (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
-              mongo $ update sessionId [RoundPhase =. End]
-              sendMessage connection FrontService $ RoundPhaseChanged sessionId End
-              sendMessage connection SandboxService ResetSandbox
-            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+          State.stopTimers sessionId state
+          stopRound stateVar pool connection sessionId
 
         ParticipantInput sessionId participantId input timestamp -> do
           updateState stateVar $ State.setParticipantInput sessionId participantId input
