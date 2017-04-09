@@ -11,13 +11,14 @@
 module Session where
 
 import Data.Text (Text)
+import Data.Text.Lazy (fromStrict)
+import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Map (Map)
 import qualified Data.Map as Map
--- import Data.Aeson
-import Data.Sequence (Seq, (|>))
+import Data.Aeson (Value, decode)
+import Data.Sequence (Seq, (|>), ViewR(..))
 import qualified Data.Sequence as Seq
--- import Data.Time.Clock
--- import Data.Foldable
+import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime)
 
 import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
@@ -26,11 +27,11 @@ import Database.Persist.MongoDB
 import Participant
 import RoundPhase
 import Puzzle
-import Round (Round)
+import Round (Round(Round, solutions), startTime)
 import Role (Role)
 import qualified Role
 import SequencePersistField()
--- import Solution (Solution(..))
+import Solution (Solution(..))
 import qualified Solution()
 
 startCountdownTime :: Integer
@@ -73,6 +74,12 @@ lookupPuzzle index session = Seq.lookup index (puzzles session)
 addRound :: Round -> Session -> Session
 addRound newRound session@Session{rounds} = session { rounds = rounds |> newRound }
 
+getCurrentRound :: Session -> Maybe Round
+getCurrentRound Session{rounds} =
+  case Seq.viewr rounds of
+    EmptyR -> Nothing
+    _ :> currentRound -> Just currentRound
+
 setRoundPhase :: RoundPhase -> Session -> Session
 setRoundPhase phase session = session { roundPhase = phase }
 
@@ -85,17 +92,33 @@ getStartCountdown = startCountdown
 setRoundCountdown :: Int -> Session -> Session
 setRoundCountdown value session = session { roundCountdown = value }
 
--- setParticipantInput :: ParticipantRef -> String -> Session -> Session
--- setParticipantInput participantId string session@Session{playerInput} =
---   session { playerInput = Map.insert participantId string playerInput }
---
--- addSolution :: ParticipantRef -> Solution -> Session -> Session
--- addSolution participantId solution session@Session{rounds} =
---   case Seq.viewr rounds of
---     EmptyR -> session
---     _ :> currentRound@Round{solutions} ->
---       session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
---         where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
+setParticipantInput :: ParticipantUid -> Text -> Session -> Session
+setParticipantInput participantId string session@Session{playerInput} =
+  session { playerInput = Map.insert participantId string playerInput }
+
+isSolutionCorrect :: Value -> Session -> Bool
+isSolutionCorrect solutionData session =
+  case lookupPuzzle (puzzleIndex session) session of
+    Just puzzle ->
+      case decode $ encodeUtf8 $ fromStrict $ expected puzzle of
+        Just expectedData -> solutionData == expectedData
+        Nothing -> False
+    Nothing -> False
+
+getSolutionTime :: UTCTime -> Session -> NominalDiffTime
+getSolutionTime time session =
+  case getCurrentRound session of
+    Just currentRound -> diffUTCTime time $ startTime currentRound
+    Nothing -> 0
+
+
+addSolution :: ParticipantUid -> Solution -> Session -> Session
+addSolution participantId solution session@Session{rounds} =
+  case getCurrentRound session of
+    Nothing -> session
+    Just currentRound@Round{solutions} ->
+      session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
+        where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
 --
 -- getLastRoundScore :: Session -> Map ParticipantRef NominalDiffTime
 -- getLastRoundScore Session{participants, rounds} =

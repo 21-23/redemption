@@ -8,17 +8,24 @@ import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import           Data.Maybe (fromMaybe)
 import           Control.Concurrent.Timer
+import           Data.UUID (UUID)
+import           Data.UUID.V4 (nextRandom)
+import           Data.Text (Text)
+import           Data.Aeson (Value)
+import           Data.Time.Clock (UTCTime, NominalDiffTime)
 
 import Participant
 import Session
 import Round (Round)
 import RoundPhase
--- import Solution
 import Puzzle
+import SandboxTransaction (SandboxTransaction(SandboxTransaction), taskId)
+import Solution (Solution)
 
 data State = State
   { sessions :: Map SessionId Session
   , timers   :: Map SessionId SessionTimers
+  , sandboxTransactions :: Map UUID SandboxTransaction
   }
 
 data SessionTimers = SessionTimers
@@ -27,7 +34,11 @@ data SessionTimers = SessionTimers
   }
 
 empty :: State
-empty = State { sessions = Map.empty, timers = Map.empty }
+empty = State
+  { sessions = Map.empty
+  , timers = Map.empty
+  , sandboxTransactions = Map.empty
+  }
 
 createSession :: ParticipantUid -> [Puzzle] -> Session
 createSession gameMasterId puzzleList = Session
@@ -47,6 +58,29 @@ createTimers = do
   startTmr <- newTimer
   roundTmr <- newTimer
   return $ SessionTimers startTmr roundTmr
+
+createSandboxTransaction ::SessionId -> ParticipantUid -> Text -> UTCTime -> IO SandboxTransaction
+createSandboxTransaction sessionId participantId input time =
+  SandboxTransaction
+    <$> nextRandom
+    <*> pure sessionId
+    <*> pure participantId
+    <*> pure input
+    <*> pure time
+
+addSandboxTransaction :: SandboxTransaction -> State -> State
+addSandboxTransaction transaction@SandboxTransaction{taskId} state@State{sandboxTransactions} =
+  state { sandboxTransactions = Map.insert taskId transaction sandboxTransactions }
+
+getSandboxTransaction :: UUID -> State -> Maybe SandboxTransaction
+getSandboxTransaction taskId State{sandboxTransactions} = Map.lookup taskId sandboxTransactions
+
+removeSandboxTransaction :: UUID -> State -> State
+removeSandboxTransaction taskId state@State{sandboxTransactions} =
+  state { sandboxTransactions = Map.delete taskId sandboxTransactions }
+
+clearSandboxTransactions :: State -> State
+clearSandboxTransactions state = state { sandboxTransactions = Map.empty }
 
 getStartTimer :: SessionId -> State -> Maybe TimerIO
 getStartTimer sessionId State{timers} = startTimer <$> Map.lookup sessionId timers
@@ -117,16 +151,30 @@ getRoundCountdown :: SessionId -> State -> Maybe Int
 getRoundCountdown sessionId State{sessions} = do
   session <- Map.lookup sessionId sessions
   return $ Session.roundCountdown session
---
--- setParticipantInput :: SessionId -> ParticipantRef -> String -> State -> State
--- setParticipantInput sessionId participantId input state@State{sessions} =
---   state { sessions = Map.adjust modify sessionId sessions }
---     where modify = Session.setParticipantInput participantId input
---
--- addSolution :: SessionId -> ParticipantRef -> Solution -> State -> State
--- addSolution sessionId participantId solution state@State{sessions} =
---   state { sessions = Map.adjust modify sessionId sessions }
---     where modify = Session.addSolution participantId solution
+
+setParticipantInput :: SessionId -> ParticipantUid -> Text -> State -> State
+setParticipantInput sessionId participantId input state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setParticipantInput participantId input
+
+isSolutionCorrect :: SessionId -> Value -> State -> Bool
+isSolutionCorrect sessionId solutionData state =
+  case getSession sessionId state of
+    Just session ->
+      Session.isSolutionCorrect solutionData session
+    Nothing -> False
+
+getSolutionTime :: SessionId -> UTCTime -> State -> NominalDiffTime
+getSolutionTime sessionId time state =
+  case getSession sessionId state of
+    Just session ->
+      Session.getSolutionTime time session
+    Nothing -> 0
+
+addSolution :: SessionId -> ParticipantUid -> Solution -> State -> State
+addSolution sessionId participantId solution state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.addSolution participantId solution
 --
 -- getLastRoundScore :: SessionId -> State -> Map ParticipantRef NominalDiffTime
 -- getLastRoundScore sessionId State{sessions} =

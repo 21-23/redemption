@@ -5,13 +5,16 @@
 module Message where
 
 import Control.Monad
+import Data.Text (Text)
 import Data.Aeson
 import Data.Semigroup
 import Data.Time.Clock
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Sequence as Seq
+import Data.UUID (UUID)
 
 import Identity
 import Participant
@@ -19,6 +22,8 @@ import Session
 import RoundPhase
 import Puzzle
 import Role
+import UUIDPersistField()
+import UUIDAeson()
 
 data IncomingMessage
   = CreateSession ParticipantUid [PuzzleId]
@@ -27,8 +32,8 @@ data IncomingMessage
   | SetPuzzleIndex SessionId Int
   | StartRound SessionId
   | StopRound SessionId
-  | ParticipantInput SessionId ParticipantUid String
-  | EvaluatedSolution SessionId ParticipantUid String Bool
+  | ParticipantInput SessionId ParticipantUid Text UTCTime
+  | EvaluatedSolution UUID (Either Text Value)
   | CreatePuzzle Puzzle
 
 data OutgoingMessage
@@ -43,14 +48,13 @@ data OutgoingMessage
   | StartCountdownChanged SessionId Int
   | RoundCountdownChanged SessionId Int
   | RoundPuzzle SessionId Puzzle
-  | ParticipantInputChanged SessionId ParticipantUid Int
-  | EvaluateSolution SessionId ParticipantUid String
-  | SolutionEvaluated SessionId ParticipantUid String Bool
+  | EvaluateSolution UUID Text
+  | SolutionEvaluated SessionId ParticipantUid (Either Text Value) NominalDiffTime Int Bool
   | RoundScore SessionId (Map ParticipantUid NominalDiffTime)
   | PuzzleCreated PuzzleId
   | PlayerSessionState SessionId ParticipantUid Session
 
-toName :: OutgoingMessage -> String
+toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"
 toName SessionCreated {}          = "session.created"
 toName ParticipantJoined {}       = "participant.joined"
@@ -64,7 +68,6 @@ toName RoundCountdownChanged {}   = "roundCountdown.changed"
 toName RoundPuzzle {}             = "puzzle"
 toName EvaluateSolution {}        = "solution.evaluate"
 toName SolutionEvaluated {}       = "solution.evaluated"
-toName ParticipantInputChanged {} = "participant.input.changed"
 toName RoundScore {}              = "round.score"
 toName PuzzleCreated {}           = "puzzle.created"
 toName PlayerSessionState {}      = "player.sessionState"
@@ -111,21 +114,18 @@ instance ToJSON OutgoingMessage where
         , "input" .= input puzzle
         , "expected" .= expected puzzle
         ]
-      toValue (EvaluateSolution sessionId participantId solution) =
-        [ "sessionId" .= sessionId
-        , "participantId" .= participantId
+      toValue (EvaluateSolution taskId solution) =
+        [ "taskId" .= taskId
         , "solution" .= solution
         ]
-      toValue (SolutionEvaluated sessionId participantId solution correct) =
+      toValue (SolutionEvaluated sessionId participantId result time len correct) =
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
-        , "solution" .= solution
-        , "correct" .= correct
-        ]
-      toValue (ParticipantInputChanged sessionId participantId len) =
-        [ "sessionId" .= sessionId
-        , "participantId" .= participantId
+        , "error" .= either Just (const Nothing) result
+        , "result" .= either (const Nothing) Just result
         , "length" .= len
+        , "time" .= time
+        , "correct" .= correct
         ]
       toValue (RoundScore sessionId score) =
         [ "sessionId" .= sessionId
@@ -158,11 +158,17 @@ instance FromJSON IncomingMessage where
         <$> message .: "sessionId"
         <*> message .: "participantId"
         <*> message .: "input"
-      String "solution.evaluated"      -> EvaluatedSolution
-        <$> message .: "sessionId"
-        <*> message .: "participantId"
-        <*> message .: "solution"
-        <*> message .: "correct"
+        <*> (posixSecondsToUTCTime <$> ((/) <$> message .: "timestamp" <*> pure 1000))
+      String "solution.evaluated"      -> do
+        taskId <- message .: "taskId"
+        mError <- message .:? "error"
+        mData <- message .:? "result"
+        let result = getResult mError mData
+                      where getResult (Just evalError) _ = Left evalError
+                            getResult _ (Just evalData)  = Right evalData
+                            getResult _ _                = Left "Malformed sandbox solution evaluation"
+        return $ EvaluatedSolution taskId result
+
       String "puzzle.create"           -> CreatePuzzle   <$> message .: "puzzle"
 
       _ -> fail "Unrecognized incoming message"

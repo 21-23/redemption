@@ -24,6 +24,7 @@ import           Data.Maybe
 import           Control.Exception
 import           Data.Convertible.Base
 import           Data.Convertible.Instances.Time()
+import qualified Data.Text              as Text
 
 
 import Config
@@ -34,10 +35,11 @@ import Identity
 import Envelope
 import Session (EntityField(..), SessionId)
 import qualified Session as Session
-import Puzzle
+import Puzzle (EntityField(..), timeLimit)
 import Round (Round(..))
 import RoundPhase
--- import Solution
+import SandboxTransaction
+import Solution (Solution(Solution))
 
 
 updateState :: MVar State -> (State -> State) -> IO ()
@@ -212,28 +214,45 @@ app stateVar pool connection = do
           case State.getSession sessionId state of
             Just _ -> do
               State.stopTimers sessionId state
-              updateState stateVar $ State.setRoundPhase sessionId End
+              updateState stateVar $ (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
               mongo $ update sessionId [RoundPhase =. End]
               sendMessage connection FrontService $ RoundPhaseChanged sessionId End
               sendMessage connection SandboxService ResetSandbox
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
+        ParticipantInput sessionId participantId input timestamp -> do
+          updateState stateVar $ State.setParticipantInput sessionId participantId input
+          -- this update is not synced with the database, participant input is considered perishable
+          transaction <- State.createSandboxTransaction sessionId participantId input timestamp
+          updateState stateVar $ State.addSandboxTransaction transaction
+          sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
 
-        _ -> return ()
+        EvaluatedSolution taskId result -> do
+          state <- readMVar stateVar
+          case State.getSandboxTransaction taskId state of
+            Just SandboxTransaction{sessionId, participantId, input, time} -> do
+              let solutionTime = State.getSolutionTime sessionId time state
+              let solutionLength = Text.length input
+                  correct = case result of
+                              Left _ -> False
+                              Right evalData -> State.isSolutionCorrect sessionId evalData state
+              if correct then
+                updateState stateVar $ State.addSolution sessionId participantId $ Solution input time
+              else
+                return ()
+
+              sendMessage connection FrontService $ SolutionEvaluated
+                                                      sessionId
+                                                      participantId
+                                                      result
+                                                      solutionTime
+                                                      solutionLength
+                                                      correct
+
+            Nothing -> putStrLn $ "Transaction not found: " ++ show taskId
+
 
       Left err -> putStrLn err
-
---         ParticipantInput sessionId participantId input -> do
---           updateState stateVar $ State.setParticipantInput sessionId participantId input
---           sendMessage connection FrontService $ ParticipantInputChanged sessionId participantId $ length input
---           sendMessage connection SandboxService $ EvaluateSolution sessionId participantId input
---         EvaluatedSolution sessionId participantId solution True -> do
---           currentTime <- getCurrentTime
---           updateState stateVar $ State.addSolution sessionId participantId $ Solution solution currentTime
---           sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution True
---         EvaluatedSolution sessionId participantId solution False ->
---           sendMessage connection FrontService $ SolutionEvaluated sessionId participantId solution False
---       Left err -> putStrLn err
 
 connectToMessenger :: Config -> WS.ClientApp () -> IO ()
 connectToMessenger config@Config{messengerHost, messengerPort} clientApp =
