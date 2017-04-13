@@ -40,7 +40,7 @@ import Round (Round(..))
 import RoundPhase
 import SandboxTransaction
 import Solution (Solution(Solution))
-
+import qualified Role
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -56,11 +56,12 @@ stopRound stateVar pool connection sessionId = do
   let mongo = runMongoDBAction pool
   state <- readMVar stateVar
   case State.getSession sessionId state of
-    Just _ -> do
+    Just session -> do
       updateState stateVar $ (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
       mongo $ update sessionId [RoundPhase =. End]
-      sendMessage connection FrontService $ RoundPhaseChanged sessionId End
       sendMessage connection SandboxService ResetSandbox
+      sendMessage connection FrontService $ RoundPhaseChanged sessionId End
+      sendMessage connection FrontService $ Score sessionId $ Session.getPlayerRoundData session
     Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
 startCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
@@ -174,7 +175,10 @@ app stateVar pool connection = do
               let role = Session.getParticipantRole participantId session
                   participantData = ParticipantJoined sessionId participantId role
               sendMessage connection FrontService participantData
-              sendMessage connection FrontService $ PlayerSessionState sessionId participantId session
+              let sessionStateMessage = case role of
+                                          Role.Player -> PlayerSessionState
+                                          Role.GameMaster -> GameMasterSessionState
+              sendMessage connection FrontService $ sessionStateMessage sessionId participantId session
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         LeaveSession sessionId participantId -> do
@@ -242,11 +246,7 @@ app stateVar pool connection = do
                   correct = case result of
                               Left _ -> False
                               Right evalData -> State.isSolutionCorrect sessionId evalData state
-              if correct then
-                updateState stateVar $ State.addSolution sessionId participantId $ Solution input time
-              else
-                return ()
-
+              updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correct
               sendMessage connection FrontService $ SolutionEvaluated
                                                       sessionId
                                                       participantId

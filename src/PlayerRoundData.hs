@@ -8,21 +8,23 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Solution where
+module PlayerRoundData where
 
 import Language.Haskell.TH.Syntax
 import Database.Persist.TH
 import Database.Persist.MongoDB
 
-import Data.Text
 import Data.Time.Clock
 
+import Participant (ParticipantUid)
+import Solution (Solution)
 import NominalDiffTimePersistField()
 
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
-Solution json
-    code Text
-    time NominalDiffTime
-    correct Bool
+PlayerRoundData json
+  participantId ParticipantUid
+  inputLength Int
+  solution Solution Maybe
+  aggregateScore NominalDiffTime Maybe
 |]

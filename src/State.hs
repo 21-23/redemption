@@ -42,7 +42,7 @@ empty = State
 
 createSession :: ParticipantUid -> [Puzzle] -> Session
 createSession gameMasterId puzzleList = Session
-  { gameMaster     = gameMasterId
+  { gameMasterId
   , puzzles        = Seq.fromList puzzleList
   , participants   = Map.empty
   , rounds         = Seq.empty
@@ -175,9 +175,3 @@ addSolution :: SessionId -> ParticipantUid -> Solution -> State -> State
 addSolution sessionId participantId solution state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.addSolution participantId solution
---
--- getLastRoundScore :: SessionId -> State -> Map ParticipantRef NominalDiffTime
--- getLastRoundScore sessionId State{sessions} =
---   case Map.lookup sessionId sessions of
---     Just session -> Session.getLastRoundScore session
---     Nothing -> Map.empty

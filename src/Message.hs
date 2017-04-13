@@ -10,7 +10,6 @@ import Data.Aeson
 import Data.Semigroup
 import Data.Time.Clock
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Sequence as Seq
@@ -24,6 +23,7 @@ import Puzzle
 import Role
 import UUIDPersistField()
 import UUIDAeson()
+import PlayerRoundData (PlayerRoundData)
 
 data IncomingMessage
   = CreateSession ParticipantUid [PuzzleId]
@@ -50,9 +50,10 @@ data OutgoingMessage
   | RoundPuzzle SessionId Puzzle
   | EvaluateSolution UUID Text
   | SolutionEvaluated SessionId ParticipantUid (Either Text Value) NominalDiffTime Int Bool
-  | RoundScore SessionId (Map ParticipantUid NominalDiffTime)
+  | Score SessionId [PlayerRoundData]
   | PuzzleCreated PuzzleId
   | PlayerSessionState SessionId ParticipantUid Session
+  | GameMasterSessionState SessionId ParticipantUid Session
 
 toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"
@@ -68,9 +69,10 @@ toName RoundCountdownChanged {}   = "roundCountdown.changed"
 toName RoundPuzzle {}             = "puzzle"
 toName EvaluateSolution {}        = "solution.evaluate"
 toName SolutionEvaluated {}       = "solution.evaluated"
-toName RoundScore {}              = "round.score"
+toName Score {}                   = "score"
 toName PuzzleCreated {}           = "puzzle.created"
 toName PlayerSessionState {}      = "player.sessionState"
+toName GameMasterSessionState {}  = "gameMaster.sessionState"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -127,21 +129,32 @@ instance ToJSON OutgoingMessage where
         , "time" .= time
         , "correct" .= correct
         ]
-      toValue (RoundScore sessionId score) =
+      toValue (Score sessionId playerRoundData) =
         [ "sessionId" .= sessionId
-        , "score" .= score
+        , "players" .= playerRoundData
         ]
       toValue (PuzzleCreated puzzleId) = [ "puzzleId" .= puzzleId ]
-      toValue (PlayerSessionState sessionId playerId session) =
+      toValue (PlayerSessionState sessionId participantId session) =
         [ "sessionId" .= sessionId
-        , "participantId" .= playerId
+        , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= (length $ puzzles session)
         , "puzzle" .=  Seq.lookup (puzzleIndex session) (puzzles session)
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
-        , "playerInput" .= fromMaybe "" (Map.lookup playerId $ playerInput session)
+        , "playerInput" .= fromMaybe "" (Map.lookup participantId $ playerInput session)
+        ]
+      toValue (GameMasterSessionState sessionId participantId session) =
+        [ "sessionId" .= sessionId
+        , "participantId" .= participantId
+        , "puzzleIndex" .= puzzleIndex session
+        , "puzzleCount" .= (length $ puzzles session)
+        , "puzzle" .=  Seq.lookup (puzzleIndex session) (puzzles session)
+        , "roundPhase" .= roundPhase session
+        , "roundCountdown" .= roundCountdown session
+        , "startCountdown" .= startCountdown session
+        , "players" .= getPlayerRoundData session
         ]
 
 instance FromJSON IncomingMessage where

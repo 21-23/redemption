@@ -11,14 +11,17 @@
 module Session where
 
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Data.Text.Lazy (fromStrict)
 import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Map (Map)
 import qualified Data.Map as Map
+-- import Data.Map.Merge.Strict (merge, mapMissing)
 import Data.Aeson (Value, decode)
 import Data.Sequence (Seq, (|>), ViewR(..))
 import qualified Data.Sequence as Seq
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime)
+import Data.Maybe (fromMaybe)
 
 import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
@@ -27,12 +30,14 @@ import Database.Persist.MongoDB
 import Participant
 import RoundPhase
 import Puzzle
-import Round (Round(Round, solutions), startTime)
+import Round (Round(Round, solutions))
+import qualified Round
 import Role (Role)
 import qualified Role
 import SequencePersistField()
 import Solution (Solution(..))
 import qualified Solution()
+import PlayerRoundData (PlayerRoundData(..))
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -40,7 +45,7 @@ startCountdownTime = 3
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
-    gameMaster ParticipantUid
+    gameMasterId ParticipantUid
     puzzles (Seq Puzzle)
     participants (Map ParticipantUid Participant)
     rounds (Seq Round)
@@ -57,7 +62,7 @@ addParticipant participant@Participant{uid} session@Session{participants} =
 
 getParticipantRole :: ParticipantUid -> Session -> Role
 getParticipantRole participantId session =
-  if participantId == gameMaster session
+  if participantId == gameMasterId session
     then Role.GameMaster
     else Role.Player
 
@@ -108,7 +113,7 @@ isSolutionCorrect solutionData session =
 getSolutionTime :: UTCTime -> Session -> NominalDiffTime
 getSolutionTime time session =
   case getCurrentRound session of
-    Just currentRound -> diffUTCTime time $ startTime currentRound
+    Just currentRound -> diffUTCTime time $ Round.startTime currentRound
     Nothing -> 0
 
 
@@ -119,13 +124,26 @@ addSolution participantId solution session@Session{rounds} =
     Just currentRound@Round{solutions} ->
       session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
         where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
---
--- getLastRoundScore :: Session -> Map ParticipantRef NominalDiffTime
--- getLastRoundScore Session{participants, rounds} =
---   case Seq.viewr rounds of
---     EmptyR -> Map.empty
---     _ :> currentRound -> Map.map (getScore currentRound) participants
---       where getScore Round{startTime, solutions} Participant{participantId} =
---               case Map.lookup participantId solutions of
---                 Just Solution{time} -> diffUTCTime time startTime
---                 Nothing -> 5 -- 5 is a widely accepted fallback value
+
+getPlayerAggregateScore :: ParticipantUid -> Session -> Maybe NominalDiffTime
+getPlayerAggregateScore participantId session@Session{rounds} =
+  if Seq.null rounds
+    then Nothing
+    else Just $ foldl (\acc (Round puzzleIndex _ solutions) ->
+                  let puzzle = lookupPuzzle puzzleIndex session
+                      defaultTime = fromMaybe 0 $ timeLimit <$> puzzle
+                   in acc + case Map.lookup participantId solutions of
+                             Just (Solution _ time True)  -> time
+                             Just (Solution _ _    False) -> defaultTime
+                             Nothing                      -> defaultTime
+                  ) 0 rounds
+
+getPlayerRoundData :: Session -> [PlayerRoundData]
+getPlayerRoundData session@Session{participants, playerInput, gameMasterId} =
+  map f $ filter ((/= gameMasterId) . fst) $ Map.toList participants
+    where f (playerId, _) = PlayerRoundData
+                        { participantId = playerId
+                        , inputLength = Text.length $ fromMaybe "" $ Map.lookup playerId playerInput
+                        , solution = (solutions <$> getCurrentRound session) >>= Map.lookup playerId
+                        , aggregateScore = getPlayerAggregateScore playerId session
+                        }

@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-7.19
+resolver: lts-8.9
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -43,7 +43,8 @@ extra-deps: [
   containers-0.5.10.2,
   suspend-0.2.0.0,
   timers-0.2.0.3,
-  persistent-2.6.1,
+  persistent-2.7.0,
+  http-api-data-0.2.4,
   persistent-mongoDB-2.5.0.1
 ]
 
