@@ -13,6 +13,7 @@ import           Data.UUID.V4 (nextRandom)
 import           Data.Text (Text)
 import           Data.Aeson (Value)
 import           Data.Time.Clock (UTCTime, NominalDiffTime)
+import           Data.List (find)
 
 import Participant
 import Session
@@ -40,8 +41,8 @@ empty = State
   , sandboxTransactions = Map.empty
   }
 
-createSession :: ParticipantUid -> [Puzzle] -> Session
-createSession gameMasterId puzzleList = Session
+createSession :: ParticipantUid -> SessionAlias -> [Puzzle] -> Session
+createSession gameMasterId alias puzzleList = Session
   { gameMasterId
   , puzzles        = Seq.fromList puzzleList
   , participants   = Map.empty
@@ -51,6 +52,7 @@ createSession gameMasterId puzzleList = Session
   , roundPhase     = Idle
   , startCountdown = 0
   , roundCountdown = 0
+  , alias
   }
 
 createTimers :: IO SessionTimers
@@ -98,6 +100,10 @@ addSession session sessionId sessionTimers state@State{sessions,timers} =
   state { sessions = Map.insert sessionId session sessions
         , timers = Map.insert sessionId sessionTimers timers
         }
+
+resolveSessionAlias :: SessionAlias -> State -> Maybe SessionId
+resolveSessionAlias alias State{sessions} =
+  fmap fst $ find ((== alias) . Session.alias . snd) $ Map.toList sessions
 
 getSession :: SessionId -> State -> Maybe Session
 getSession sessionId State{sessions} = Map.lookup sessionId sessions

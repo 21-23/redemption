@@ -145,41 +145,47 @@ app stateVar pool connection = do
           puzzleId <- mongo $ insert puzzle
           sendMessage connection InitService $ PuzzleCreated puzzleId
 
-        CreateSession gameMasterId puzzleIds -> do
+        CreateSession gameMasterId alias puzzleIds -> do
           puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
-          let session = State.createSession gameMasterId (entityVal <$> puzzles)
+          let session = State.createSession gameMasterId alias (entityVal <$> puzzles)
           sessionId <- mongo $ insert session
           mongo $ repsert sessionId session
           sessionTimers <- State.createTimers
           updateState stateVar $ State.addSession session sessionId sessionTimers
           sendMessage connection InitService $ SessionCreated sessionId
 
-        JoinSession sessionId participantId -> do
+        JoinSession alias participantId -> do
           state <- readMVar stateVar
-          let stateSession = State.getSession sessionId state
-          maybeSession <- case stateSession of
-            Just s -> pure $ Just s
-            Nothing -> do
-              dbSession <- mongo $ get sessionId
-              case dbSession of
-                Just session -> do
-                  sessionTimers <- State.createTimers
-                  updateState stateVar $ State.addSession session sessionId sessionTimers
-                  return $ Just session
-                Nothing -> return Nothing
+          case State.resolveSessionAlias alias state of
+            Just sessionId -> do
+              let stateSession = State.getSession sessionId state
+              maybeSession <- case stateSession of
+                Just s -> pure $ Just s
+                Nothing -> do
+                  dbSession <- mongo $ get sessionId
+                  case dbSession of
+                    Just session -> do
+                      sessionTimers <- State.createTimers
+                      updateState stateVar $ State.addSession session sessionId sessionTimers
+                      return $ Just session
+                    Nothing -> return Nothing
 
-          case maybeSession of
-            Just session -> do
-              updateState stateVar $ State.addParticipant sessionId participantId
-              mongo $ update sessionId [Participants =. Session.participants session]
-              let role = Session.getParticipantRole participantId session
-                  participantData = ParticipantJoined sessionId participantId role
-              sendMessage connection FrontService participantData
-              let sessionStateMessage = case role of
-                                          Role.Player -> PlayerSessionState
-                                          Role.GameMaster -> GameMasterSessionState
-              sendMessage connection FrontService $ sessionStateMessage sessionId participantId session
-            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+              case maybeSession of
+                Just session -> do
+                  updateState stateVar $ State.addParticipant sessionId participantId
+                  mongo $ update sessionId [Participants =. Session.participants session]
+                  let role = Session.getParticipantRole participantId session
+                      participantData = ParticipantJoined sessionId participantId role
+                  sendMessage connection FrontService participantData
+                  let sessionStateMessage = case role of
+                                              Role.Player -> PlayerSessionState
+                                              Role.GameMaster -> GameMasterSessionState
+                  sendMessage connection FrontService $ sessionStateMessage sessionId participantId session
+                Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+
+            Nothing -> putStrLn $ "Couldn't resolve session alias: " ++ show alias
+
+
 
         LeaveSession sessionId participantId -> do
           updateState stateVar $ State.removeParticipant sessionId participantId

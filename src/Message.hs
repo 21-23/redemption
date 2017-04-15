@@ -26,8 +26,8 @@ import UUIDAeson()
 import PlayerRoundData (PlayerRoundData)
 
 data IncomingMessage
-  = CreateSession ParticipantUid [PuzzleId]
-  | JoinSession SessionId ParticipantUid
+  = CreateSession ParticipantUid SessionAlias [PuzzleId]
+  | JoinSession SessionAlias ParticipantUid
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId Int
   | StartRound SessionId
@@ -161,7 +161,10 @@ instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
     name <- message .: "name"
     case name of
-      String "session.create"          -> CreateSession  <$> message .: "gameMasterId" <*> message .: "puzzles"
+      String "session.create"          -> CreateSession
+        <$> message .: "gameMasterId"
+        <*> message .: "alias"
+        <*> message .: "puzzles"
       String "session.join"            -> JoinSession    <$> message .: "sessionId" <*> message .: "participantId"
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"

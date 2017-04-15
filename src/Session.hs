@@ -42,18 +42,21 @@ import PlayerRoundData (PlayerRoundData(..))
 startCountdownTime :: Integer
 startCountdownTime = 3
 
+type SessionAlias = Text
+
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
-    gameMasterId ParticipantUid
-    puzzles (Seq Puzzle)
-    participants (Map ParticipantUid Participant)
-    rounds (Seq Round)
-    playerInput (Map ParticipantUid Text)
-    puzzleIndex Int
-    roundPhase RoundPhase
+    gameMasterId   ParticipantUid
+    puzzles        (Seq Puzzle)
+    participants   (Map ParticipantUid Participant)
+    rounds         (Seq Round)
+    playerInput    (Map ParticipantUid Text)
+    puzzleIndex    Int
+    roundPhase     RoundPhase
     startCountdown Int
     roundCountdown Int
+    alias          SessionAlias
 |]
 
 addParticipant :: Participant -> Session -> Session
