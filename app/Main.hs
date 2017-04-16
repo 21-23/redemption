@@ -111,6 +111,7 @@ startCountdownAction timer stateVar pool sessionAlias connection = do
         Just value -> do
           let nextValue = value - 1
           updateState stateVar $ State.setStartCountdown sessionId nextValue
+          mongo $ update sessionId [StartCountdown =. nextValue]
           sendMessage connection FrontService $ StartCountdownChanged sessionAlias nextValue
         Nothing -> return ()
 
