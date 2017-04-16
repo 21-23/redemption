@@ -106,16 +106,11 @@ setParticipantInput participantId string session@Session{playerInput} =
   session { playerInput = Map.insert participantId string playerInput }
 
 isSolutionCorrect :: ByteString -> Session -> Bool
-isSolutionCorrect solutionJson session =
-  case lookupPuzzle (puzzleIndex session) session of
-    Just puzzle ->
-      case decode $ encodeUtf8 $ fromStrict $ expected puzzle of
-        Just expectedData ->
-          case (decode solutionJson :: Maybe Value) of
-            Just solutionData -> solutionData == expectedData
-            Nothing -> False
-        Nothing -> False
-    Nothing -> False
+isSolutionCorrect solutionJson session = fromMaybe False $ do
+  puzzle <- lookupPuzzle (puzzleIndex session) session
+  expectedData <- decode $ encodeUtf8 $ fromStrict $ expected puzzle
+  solutionData <- (decode solutionJson :: Maybe Value)
+  return $ solutionData == expectedData
 
 getSolutionTime :: UTCTime -> Session -> NominalDiffTime
 getSolutionTime time session =
