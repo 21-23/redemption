@@ -28,32 +28,32 @@ import PlayerRoundData (PlayerRoundData)
 data IncomingMessage
   = CreateSession ParticipantUid SessionAlias [PuzzleId]
   | JoinSession SessionAlias ParticipantUid
-  | LeaveSession SessionId ParticipantUid
-  | SetPuzzleIndex SessionId Int
-  | StartRound SessionId
-  | StopRound SessionId
-  | ParticipantInput SessionId ParticipantUid Text UTCTime
+  | LeaveSession SessionAlias ParticipantUid
+  | SetPuzzleIndex SessionAlias Int
+  | StartRound SessionAlias
+  | StopRound SessionAlias
+  | ParticipantInput SessionAlias ParticipantUid Text UTCTime
   | EvaluatedSolution UUID (Either Text Value)
   | CreatePuzzle Puzzle
 
 data OutgoingMessage
   = ArnauxCheckin Identity
-  | SessionCreated SessionId
-  | ParticipantJoined SessionId ParticipantUid Role
-  | ParticipantLeft SessionId ParticipantUid
-  | PuzzleChanged SessionId Int Puzzle
-  | RoundPhaseChanged SessionId RoundPhase
+  | SessionCreated SessionAlias
+  | ParticipantJoined SessionAlias ParticipantUid Role
+  | ParticipantLeft SessionAlias ParticipantUid
+  | PuzzleChanged SessionAlias Int Puzzle
+  | RoundPhaseChanged SessionAlias RoundPhase
   | SetSandbox Puzzle
   | ResetSandbox
-  | StartCountdownChanged SessionId Int
-  | RoundCountdownChanged SessionId Int
-  | RoundPuzzle SessionId Puzzle
+  | StartCountdownChanged SessionAlias Int
+  | RoundCountdownChanged SessionAlias Int
+  | RoundPuzzle SessionAlias Puzzle
   | EvaluateSolution UUID Text
-  | SolutionEvaluated SessionId ParticipantUid (Either Text Value) NominalDiffTime Int Bool
-  | Score SessionId [PlayerRoundData]
+  | SolutionEvaluated SessionAlias ParticipantUid (Either Text Value) NominalDiffTime Int Bool
+  | Score SessionAlias [PlayerRoundData]
   | PuzzleCreated PuzzleId
-  | PlayerSessionState SessionId ParticipantUid Session
-  | GameMasterSessionState SessionId ParticipantUid Session
+  | PlayerSessionState SessionAlias ParticipantUid Session
+  | GameMasterSessionState SessionAlias ParticipantUid Session
 
 toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"

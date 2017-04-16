@@ -33,12 +33,12 @@ import qualified State
 import Message
 import Identity
 import Envelope
-import Session (EntityField(..), SessionId)
+import Session (EntityField(..), SessionAlias)
 import qualified Session as Session
 import Puzzle (EntityField(..), timeLimit)
 import Round (Round(..))
 import RoundPhase
-import SandboxTransaction
+import SandboxTransaction (SandboxTransaction(..))
 import Solution (Solution(Solution))
 import qualified Role
 
@@ -51,30 +51,32 @@ sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
 sendMessage connection to message =
   WS.sendTextData connection $ encode $ Envelope to message
 
-stopRound :: MVar State -> ConnectionPool -> WS.Connection -> SessionId -> IO ()
-stopRound stateVar pool connection sessionId = do
+stopRound :: MVar State -> ConnectionPool -> WS.Connection -> SessionAlias -> IO ()
+stopRound stateVar pool connection sessionAlias = do
   let mongo = runMongoDBAction pool
   state <- readMVar stateVar
-  case State.getSession sessionId state of
-    Just session -> do
+  case State.getSessionByAlias sessionAlias state of
+    Just (sessionId, session) -> do
       updateState stateVar $ (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
       mongo $ update sessionId [RoundPhase =. End]
       sendMessage connection SandboxService ResetSandbox
-      sendMessage connection FrontService $ RoundPhaseChanged sessionId End
-      sendMessage connection FrontService $ Score sessionId $ Session.getPlayerRoundData session
-    Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+      sendMessage connection FrontService $ RoundPhaseChanged sessionAlias End
+      sendMessage connection FrontService $ Score sessionAlias $ Session.getPlayerRoundData session
+    Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
-startCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
-startCountdownAction timer stateVar pool sessionId connection = do
+startCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionAlias -> WS.Connection -> IO ()
+startCountdownAction timer stateVar pool sessionAlias connection = do
   let mongo = runMongoDBAction pool
   state <- readMVar stateVar
-  let countdownValue = State.getStartCountdown sessionId state
-  case countdownValue of
-    Just 0 ->
-      case State.getPuzzleIndex sessionId state of
-        Just puzzleIndex -> do
-          case State.getSession sessionId state of
-            Just session -> do
+  case State.getSessionByAlias sessionAlias state of
+    Nothing -> do
+      putStrLn $ "Session not found: " ++ show sessionAlias
+    Just (sessionId, session) -> do
+      let countdownValue = State.getStartCountdown sessionId state
+      case countdownValue of
+        Just 0 ->
+          case State.getPuzzleIndex sessionId state of
+            Just puzzleIndex -> do
               -- create a new round
               currentTime <- getCurrentTime
               updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
@@ -82,20 +84,20 @@ startCountdownAction timer stateVar pool sessionId connection = do
               -- change phase to 'game'
               updateState stateVar $ State.setRoundPhase sessionId InProgress
               mongo $ update sessionId [RoundPhase =. InProgress]
-              sendMessage connection FrontService $ RoundPhaseChanged sessionId InProgress
+              sendMessage connection FrontService $ RoundPhaseChanged sessionAlias InProgress
 
               let maybePuzzle = State.getSession sessionId state >>= Session.lookupPuzzle puzzleIndex
               case maybePuzzle of
                 Just puzzle -> do
                   -- send round puzzle
-                  sendMessage connection FrontService $ RoundPuzzle sessionId puzzle
+                  sendMessage connection FrontService $ RoundPuzzle sessionAlias puzzle
                   -- start round countdown
                   let roundCountdownValue = convert $ timeLimit puzzle
                   updateState stateVar $ State.setRoundCountdown sessionId roundCountdownValue
                   mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
                   case State.getRoundTimer sessionId state of
                     Just rountTimer -> do
-                      _ <- repeatedStart rountTimer (roundCountdownAction rountTimer stateVar pool sessionId connection) (sDelay 1)
+                      _ <- repeatedStart rountTimer (roundCountdownAction rountTimer stateVar pool sessionAlias connection) (sDelay 1)
                       return ()
                     Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                   stopTimer timer -- has to be the last statement because it kills the thread
@@ -103,34 +105,35 @@ startCountdownAction timer stateVar pool sessionId connection = do
                   putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
                   stopTimer timer -- has to be the last statement because it kills the thread
 
-            Nothing -> do
-              putStrLn $ "Session not found: " ++ show sessionId
               stopTimer timer -- has to be the last statement because it kills the thread
 
-        Nothing -> stopTimer timer -- has to be the last statement because it kills the thread
-    Just value -> do
-      let nextValue = value - 1
-      updateState stateVar $ State.setStartCountdown sessionId nextValue
-      sendMessage connection FrontService $ StartCountdownChanged sessionId nextValue
-    Nothing -> return ()
+            Nothing -> stopTimer timer -- has to be the last statement because it kills the thread
+        Just value -> do
+          let nextValue = value - 1
+          updateState stateVar $ State.setStartCountdown sessionId nextValue
+          sendMessage connection FrontService $ StartCountdownChanged sessionAlias nextValue
+        Nothing -> return ()
 
-roundCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
-roundCountdownAction timer stateVar pool sessionId connection = do
+roundCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionAlias -> WS.Connection -> IO ()
+roundCountdownAction timer stateVar pool sessionAlias connection = do
   let mongo = runMongoDBAction pool
   state <- readMVar stateVar
-  let countdownValue = State.getRoundCountdown sessionId state
-  case countdownValue of
-    Just 0 -> do
-      stopRound stateVar pool connection sessionId
-      stopTimer timer -- has to be the last statement because it kills the thread
+  case State.getSessionByAlias sessionAlias state of
+    Just (sessionId, _) -> do
+      let countdownValue = State.getRoundCountdown sessionId state
+      case countdownValue of
+        Just 0 -> do
+          stopRound stateVar pool connection sessionAlias
+          stopTimer timer -- has to be the last statement because it kills the thread
 
-    Just value -> do
-      let nextValue = value - 1
-      updateState stateVar $ State.setRoundCountdown sessionId nextValue
-      mongo $ update sessionId [RoundCountdown =. nextValue]
-      sendMessage connection FrontService $ RoundCountdownChanged sessionId nextValue
+        Just value -> do
+          let nextValue = value - 1
+          updateState stateVar $ State.setRoundCountdown sessionId nextValue
+          mongo $ update sessionId [RoundCountdown =. nextValue]
+          sendMessage connection FrontService $ RoundCountdownChanged sessionAlias nextValue
 
-    Nothing -> return ()
+        Nothing -> return ()
+    Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
 app :: MVar State -> ConnectionPool -> WS.ClientApp ()
 app stateVar pool connection = do
@@ -145,73 +148,69 @@ app stateVar pool connection = do
           puzzleId <- mongo $ insert puzzle
           sendMessage connection InitService $ PuzzleCreated puzzleId
 
-        CreateSession gameMasterId alias puzzleIds -> do
+        CreateSession gameMasterId sessionAlias puzzleIds -> do
           puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
-          let session = State.createSession gameMasterId alias (entityVal <$> puzzles)
+          let session = State.createSession gameMasterId sessionAlias (entityVal <$> puzzles)
           sessionId <- mongo $ insert session
           mongo $ repsert sessionId session
           sessionTimers <- State.createTimers
           updateState stateVar $ State.addSession session sessionId sessionTimers
-          sendMessage connection InitService $ SessionCreated sessionId
+          sendMessage connection InitService $ SessionCreated sessionAlias
 
-        JoinSession alias participantId -> do
+        JoinSession sessionAlias participantId -> do
           state <- readMVar stateVar
-          case State.resolveSessionAlias alias state of
-            Just sessionId -> do
-              let stateSession = State.getSession sessionId state
-              maybeSession <- case stateSession of
-                Just s -> pure $ Just s
-                Nothing -> do
-                  dbSession <- mongo $ get sessionId
-                  case dbSession of
-                    Just session -> do
-                      sessionTimers <- State.createTimers
-                      updateState stateVar $ State.addSession session sessionId sessionTimers
-                      return $ Just session
-                    Nothing -> return Nothing
+          let stateSession = State.getSessionByAlias sessionAlias state
+          maybeSession <- case stateSession of
+            Just s -> pure $ Just s
+            Nothing -> do
+              dbSession <- mongo $ selectFirst [Alias ==. sessionAlias] []
+              case dbSession of
+                Just entity -> do
+                  let sessionId = entityKey entity
+                      session = entityVal entity
+                  sessionTimers <- State.createTimers
+                  updateState stateVar $ State.addSession session sessionId sessionTimers
+                  return $ Just (sessionId, session)
+                Nothing -> return Nothing
 
-              case maybeSession of
-                Just session -> do
-                  updateState stateVar $ State.addParticipant sessionId participantId
-                  mongo $ update sessionId [Participants =. Session.participants session]
-                  let role = Session.getParticipantRole participantId session
-                      participantData = ParticipantJoined sessionId participantId role
-                  sendMessage connection FrontService participantData
-                  let sessionStateMessage = case role of
-                                              Role.Player -> PlayerSessionState
-                                              Role.GameMaster -> GameMasterSessionState
-                  sendMessage connection FrontService $ sessionStateMessage sessionId participantId session
-                Nothing -> putStrLn $ "Session not found: " ++ show sessionId
-
-            Nothing -> putStrLn $ "Couldn't resolve session alias: " ++ show alias
-
-
-
-        LeaveSession sessionId participantId -> do
-          updateState stateVar $ State.removeParticipant sessionId participantId
-          state <- readMVar stateVar
-          case State.getSession sessionId state of
-            Just session -> do
+          case maybeSession of
+            Just (sessionId, session) -> do
+              updateState stateVar $ State.addParticipant sessionId participantId
               mongo $ update sessionId [Participants =. Session.participants session]
-              sendMessage connection FrontService $ ParticipantLeft sessionId participantId
-            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+              let role = Session.getParticipantRole participantId session
+                  participantData = ParticipantJoined sessionAlias participantId role
+              sendMessage connection FrontService participantData
+              let sessionStateMessage = case role of
+                                          Role.Player -> PlayerSessionState
+                                          Role.GameMaster -> GameMasterSessionState
+              sendMessage connection FrontService $ sessionStateMessage sessionAlias participantId session
+            Nothing -> putStrLn $ "Couldn't resolve session alias: " ++ show sessionAlias
 
-        SetPuzzleIndex sessionId puzzleIndex -> do
-          updateState stateVar $ State.setPuzzleIndex sessionId puzzleIndex
+        LeaveSession sessionAlias participantId -> do
           state <- readMVar stateVar
-          case State.getSession sessionId state of
-            Just session -> do
+          case State.getSessionByAlias sessionAlias state of
+            Just (sessionId, session) -> do
+              updateState stateVar $ State.removeParticipant sessionId participantId
+              mongo $ update sessionId [Participants =. Session.participants session]
+              sendMessage connection FrontService $ ParticipantLeft sessionAlias participantId
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
+
+        SetPuzzleIndex sessionAlias puzzleIndex -> do
+          state <- readMVar stateVar
+          case State.getSessionByAlias sessionAlias state of
+            Just (sessionId, session) -> do
+              updateState stateVar $ State.setPuzzleIndex sessionId puzzleIndex
               mongo $ update sessionId [PuzzleIndex =. Session.puzzleIndex session]
               case Session.lookupPuzzle puzzleIndex session of
                 Just puzzle -> do
-                  sendMessage connection FrontService $ PuzzleChanged sessionId puzzleIndex puzzle
+                  sendMessage connection FrontService $ PuzzleChanged sessionAlias puzzleIndex puzzle
                 Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
-            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
-        StartRound sessionId -> do
+        StartRound sessionAlias -> do
           state <- readMVar stateVar
-          case State.getSession sessionId state of
-            Just session -> do
+          case State.getSessionByAlias sessionAlias state of
+            Just (sessionId, session) -> do
               updateState stateVar $ State.setRoundPhase sessionId Countdown
               mongo $ update sessionId [RoundPhase =. Countdown]
               let puzzleIndex = State.getPuzzleIndex sessionId state
@@ -219,34 +218,41 @@ app stateVar pool connection = do
               case maybePuzzle of
                 Just puzzle -> do
                   sendMessage connection SandboxService $ SetSandbox puzzle
-                  sendMessage connection FrontService $ RoundPhaseChanged sessionId Countdown
+                  sendMessage connection FrontService $ RoundPhaseChanged sessionAlias Countdown
                   let countdownValue = 2
                   updateState stateVar $ State.setStartCountdown sessionId countdownValue
                   mongo $ update sessionId [StartCountdown =. countdownValue]
                   case State.getStartTimer sessionId state of
                     Just timer -> do
-                      _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionId connection) (sDelay 1)
-                      sendMessage connection FrontService $ StartCountdownChanged sessionId countdownValue
+                      _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionAlias connection) (sDelay 1)
+                      sendMessage connection FrontService $ StartCountdownChanged sessionAlias countdownValue
                     Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                 Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
-            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
-        StopRound sessionId -> do
+        StopRound sessionAlias -> do
           state <- readMVar stateVar
-          State.stopTimers sessionId state
-          stopRound stateVar pool connection sessionId
+          case State.getSessionByAlias sessionAlias state of
+            Just (sessionId, _) -> do
+              State.stopTimers sessionId state
+              stopRound stateVar pool connection sessionAlias
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
-        ParticipantInput sessionId participantId input timestamp -> do
-          updateState stateVar $ State.setParticipantInput sessionId participantId input
-          -- this update is not synced with the database, participant input is considered perishable
-          transaction <- State.createSandboxTransaction sessionId participantId input timestamp
-          updateState stateVar $ State.addSandboxTransaction transaction
-          sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
+        ParticipantInput sessionAlias participantId input timestamp -> do
+          state <- readMVar stateVar
+          case State.getSessionByAlias sessionAlias state of
+            Just (sessionId, _) -> do
+              -- this update is not synced with the database, participant input is considered perishable
+              updateState stateVar $ State.setParticipantInput sessionId participantId input
+              transaction <- State.createSandboxTransaction sessionId sessionAlias participantId input timestamp
+              updateState stateVar $ State.addSandboxTransaction transaction
+              sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
         EvaluatedSolution taskId result -> do
           state <- readMVar stateVar
           case State.getSandboxTransaction taskId state of
-            Just SandboxTransaction{sessionId, participantId, input, time} -> do
+            Just SandboxTransaction{sessionId, sessionAlias, participantId, input, time} -> do
               let solutionTime = State.getSolutionTime sessionId time state
               let solutionLength = Text.length input
                   correct = case result of
@@ -254,7 +260,7 @@ app stateVar pool connection = do
                               Right evalData -> State.isSolutionCorrect sessionId evalData state
               updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correct
               sendMessage connection FrontService $ SolutionEvaluated
-                                                      sessionId
+                                                      sessionAlias
                                                       participantId
                                                       result
                                                       solutionTime

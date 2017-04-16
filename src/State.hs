@@ -13,7 +13,6 @@ import           Data.UUID.V4 (nextRandom)
 import           Data.Text (Text)
 import           Data.Aeson (Value)
 import           Data.Time.Clock (UTCTime, NominalDiffTime)
-import           Data.List (find)
 
 import Participant
 import Session
@@ -27,6 +26,7 @@ data State = State
   { sessions :: Map SessionId Session
   , timers   :: Map SessionId SessionTimers
   , sandboxTransactions :: Map UUID SandboxTransaction
+  , aliases :: Map SessionAlias SessionId
   }
 
 data SessionTimers = SessionTimers
@@ -39,6 +39,7 @@ empty = State
   { sessions = Map.empty
   , timers = Map.empty
   , sandboxTransactions = Map.empty
+  , aliases = Map.empty
   }
 
 createSession :: ParticipantUid -> SessionAlias -> [Puzzle] -> Session
@@ -61,11 +62,12 @@ createTimers = do
   roundTmr <- newTimer
   return $ SessionTimers startTmr roundTmr
 
-createSandboxTransaction ::SessionId -> ParticipantUid -> Text -> UTCTime -> IO SandboxTransaction
-createSandboxTransaction sessionId participantId input time =
+createSandboxTransaction ::SessionId -> SessionAlias -> ParticipantUid -> Text -> UTCTime -> IO SandboxTransaction
+createSandboxTransaction sessionId sessionAlias participantId input time =
   SandboxTransaction
     <$> nextRandom
     <*> pure sessionId
+    <*> pure sessionAlias
     <*> pure participantId
     <*> pure input
     <*> pure time
@@ -96,17 +98,23 @@ stopTimers sessionId state = do
   fromMaybe (return ()) $ stopTimer <$> getRoundTimer sessionId state
 
 addSession :: Session -> SessionId -> SessionTimers -> State -> State
-addSession session sessionId sessionTimers state@State{sessions,timers} =
+addSession session@Session{alias} sessionId sessionTimers state@State{sessions, timers, aliases} =
   state { sessions = Map.insert sessionId session sessions
-        , timers = Map.insert sessionId sessionTimers timers
+        , timers   = Map.insert sessionId sessionTimers timers
+        , aliases  = Map.insert alias sessionId aliases
         }
-
-resolveSessionAlias :: SessionAlias -> State -> Maybe SessionId
-resolveSessionAlias alias State{sessions} =
-  fmap fst $ find ((== alias) . Session.alias . snd) $ Map.toList sessions
 
 getSession :: SessionId -> State -> Maybe Session
 getSession sessionId State{sessions} = Map.lookup sessionId sessions
+
+resolveSessionAlias :: SessionAlias -> State -> Maybe SessionId
+resolveSessionAlias alias State{aliases} = Map.lookup alias aliases
+
+getSessionByAlias :: SessionAlias -> State -> Maybe (SessionId, Session)
+getSessionByAlias alias state = do
+  sessionId <- resolveSessionAlias alias state
+  session <- getSession sessionId state
+  return (sessionId, session)
 
 addParticipant :: SessionId -> ParticipantUid -> State -> State
 addParticipant sessionId participantId state@State{sessions} =

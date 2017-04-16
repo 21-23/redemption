@@ -20,15 +20,16 @@ import Data.Time.Clock (UTCTime)
 
 import UUIDPersistField()
 import UUIDAeson()
-import Session (SessionId)
+import Session (SessionId, SessionAlias)
 import Participant (ParticipantUid)
 
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 SandboxTransaction json
-  taskId UUID
-  sessionId SessionId
+  taskId        UUID
+  sessionId     SessionId
+  sessionAlias  SessionAlias
   participantId ParticipantUid
-  input Text
-  time UTCTime
+  input         Text
+  time          UTCTime
 |]
