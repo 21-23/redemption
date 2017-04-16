@@ -17,7 +17,7 @@ import           Data.Aeson
 import           Control.Concurrent.Timer
 import           Control.Concurrent.Suspend.Lifted
 import           Data.Time.Clock        (getCurrentTime)
-import qualified Data.Map               as Map
+import qualified Data.Map.Strict        as Map
 import qualified Data.Yaml              as Yaml
 import           System.Environment
 import           Data.Maybe

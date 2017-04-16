@@ -11,7 +11,7 @@ import Data.Aeson
 import Data.Semigroup
 import Data.Time.Clock
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Sequence as Seq
 import Data.UUID (UUID)

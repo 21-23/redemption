@@ -3,8 +3,8 @@
 
 module State where
 
-import           Data.Map (Map)
-import qualified Data.Map as Map
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import           Data.Maybe (fromMaybe)
 import           Control.Concurrent.Timer

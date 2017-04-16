@@ -15,7 +15,7 @@ import Database.Persist.TH
 import Database.Persist.MongoDB
 
 import Data.Time.Clock
-import Data.Map (Map)
+import Data.Map.Strict (Map)
 
 import Participant
 import Solution

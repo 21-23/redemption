@@ -14,9 +14,8 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Lazy (fromStrict)
 import Data.Text.Lazy.Encoding (encodeUtf8)
-import Data.Map (Map)
-import qualified Data.Map as Map
--- import Data.Map.Merge.Strict (merge, mapMissing)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Aeson (Value, decode)
 import Data.Sequence (Seq, (|>), ViewR(..))
 import qualified Data.Sequence as Seq
