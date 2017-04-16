@@ -81,7 +81,7 @@ startCountdownAction timer stateVar pool sessionAlias connection = do
               currentTime <- getCurrentTime
               updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
               mongo $ update sessionId [Rounds =. Session.rounds session]
-              -- change phase to 'game'
+              -- change phase to 'in progress'
               updateState stateVar $ State.setRoundPhase sessionId InProgress
               mongo $ update sessionId [RoundPhase =. InProgress]
               sendMessage connection FrontService $ RoundPhaseChanged sessionAlias InProgress
