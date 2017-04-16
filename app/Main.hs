@@ -135,12 +135,19 @@ roundCountdownAction timer stateVar pool sessionAlias connection = do
         Nothing -> return ()
     Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
-app :: MVar State -> ConnectionPool -> WS.ClientApp ()
-app stateVar pool connection = do
+app :: Config -> MVar State -> ConnectionPool -> WS.ClientApp ()
+app config stateVar pool connection = do
   WS.sendTextData connection $ encode $ Envelope Messenger (ArnauxCheckin StateService)
   let mongo = runMongoDBAction pool
   forever $ do
-    string <- WS.receiveData connection
+    string <- catch
+      (WS.receiveData connection)
+      (\exception -> do
+        print (exception :: WS.ConnectionException)
+        suspend $ msDelay 500
+        connectToMessenger config $ app config stateVar pool
+        return "")
+
     case eitherDecode string :: Either String (Envelope IncomingMessage) of
       Right Envelope {message} -> case message of
 
@@ -293,5 +300,5 @@ main = do
     Just config -> do
       stateVar <- newMVar State.empty
       withMongoDBPool "_qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2 1 20000 $ \pool ->
-        connectToMessenger config $ app stateVar pool
+        connectToMessenger config $ app config stateVar pool
     Nothing -> fail ("Configuration file '" ++ env ++ "' was not found")
