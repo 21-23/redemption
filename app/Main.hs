@@ -96,8 +96,8 @@ startCountdownAction timer stateVar pool sessionAlias connection = do
                   updateState stateVar $ State.setRoundCountdown sessionId roundCountdownValue
                   mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
                   case State.getRoundTimer sessionId state of
-                    Just rountTimer -> do
-                      _ <- repeatedStart rountTimer (roundCountdownAction rountTimer stateVar pool sessionAlias connection) (sDelay 1)
+                    Just roundTimer -> do
+                      _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar pool sessionAlias connection) (sDelay 1)
                       return ()
                     Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                   stopTimer timer -- has to be the last statement because it kills the thread
