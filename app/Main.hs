@@ -257,7 +257,7 @@ app stateVar pool connection = do
               let solutionLength = Text.length input
                   correct = case result of
                               Left _ -> False
-                              Right evalData -> State.isSolutionCorrect sessionId evalData state
+                              Right resultJson -> State.isSolutionCorrect sessionId resultJson state
               updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correct
               sendMessage connection FrontService $ SolutionEvaluated
                                                       sessionAlias

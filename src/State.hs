@@ -11,8 +11,8 @@ import           Control.Concurrent.Timer
 import           Data.UUID (UUID)
 import           Data.UUID.V4 (nextRandom)
 import           Data.Text (Text)
-import           Data.Aeson (Value)
 import           Data.Time.Clock (UTCTime, NominalDiffTime)
+import           Data.ByteString.Lazy (ByteString)
 
 import Participant
 import Session
@@ -171,11 +171,11 @@ setParticipantInput sessionId participantId input state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.setParticipantInput participantId input
 
-isSolutionCorrect :: SessionId -> Value -> State -> Bool
-isSolutionCorrect sessionId solutionData state =
+isSolutionCorrect :: SessionId -> ByteString -> State -> Bool
+isSolutionCorrect sessionId json state =
   case getSession sessionId state of
     Just session ->
-      Session.isSolutionCorrect solutionData session
+      Session.isSolutionCorrect json session
     Nothing -> False
 
 getSolutionTime :: SessionId -> UTCTime -> State -> NominalDiffTime

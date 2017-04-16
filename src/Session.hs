@@ -22,6 +22,7 @@ import Data.Sequence (Seq, (|>), ViewR(..))
 import qualified Data.Sequence as Seq
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime)
 import Data.Maybe (fromMaybe)
+import Data.ByteString.Lazy (ByteString)
 
 import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
@@ -104,12 +105,15 @@ setParticipantInput :: ParticipantUid -> Text -> Session -> Session
 setParticipantInput participantId string session@Session{playerInput} =
   session { playerInput = Map.insert participantId string playerInput }
 
-isSolutionCorrect :: Value -> Session -> Bool
-isSolutionCorrect solutionData session =
+isSolutionCorrect :: ByteString -> Session -> Bool
+isSolutionCorrect solutionJson session =
   case lookupPuzzle (puzzleIndex session) session of
     Just puzzle ->
       case decode $ encodeUtf8 $ fromStrict $ expected puzzle of
-        Just expectedData -> solutionData == expectedData
+        Just expectedData ->
+          case (decode solutionJson :: Maybe Value) of
+            Just solutionData -> solutionData == expectedData
+            Nothing -> False
         Nothing -> False
     Nothing -> False
 

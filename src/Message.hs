@@ -6,6 +6,7 @@ module Message where
 
 import Control.Monad
 import Data.Text (Text)
+import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import Data.Aeson
 import Data.Semigroup
 import Data.Time.Clock
@@ -14,6 +15,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Sequence as Seq
 import Data.UUID (UUID)
+import Data.ByteString.Lazy (ByteString)
 
 import Identity
 import Participant
@@ -33,7 +35,7 @@ data IncomingMessage
   | StartRound SessionAlias
   | StopRound SessionAlias
   | ParticipantInput SessionAlias ParticipantUid Text UTCTime
-  | EvaluatedSolution UUID (Either Text Value)
+  | EvaluatedSolution UUID (Either Text ByteString)
   | CreatePuzzle Puzzle
 
 data OutgoingMessage
@@ -49,7 +51,7 @@ data OutgoingMessage
   | RoundCountdownChanged SessionAlias Int
   | RoundPuzzle SessionAlias Puzzle
   | EvaluateSolution UUID Text
-  | SolutionEvaluated SessionAlias ParticipantUid (Either Text Value) NominalDiffTime Int Bool
+  | SolutionEvaluated SessionAlias ParticipantUid (Either Text ByteString) NominalDiffTime Int Bool
   | Score SessionAlias [PlayerRoundData]
   | PuzzleCreated PuzzleId
   | PlayerSessionState SessionAlias ParticipantUid Session
@@ -124,7 +126,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
         , "error" .= either Just (const Nothing) result
-        , "result" .= either (const Nothing) Just result
+        , "result" .= either (const Nothing) (Just . decodeUtf8) result
         , "length" .= len
         , "time" .= time
         , "correct" .= correct
@@ -181,7 +183,7 @@ instance FromJSON IncomingMessage where
         mData <- message .:? "result"
         let result = getResult mError mData
                       where getResult (Just evalError) _ = Left evalError
-                            getResult _ (Just evalData)  = Right evalData
+                            getResult _ (Just resultJson)      = Right $ encodeUtf8 resultJson
                             getResult _ _                = Left "Malformed sandbox solution evaluation"
         return $ EvaluatedSolution taskId result
 
