@@ -182,9 +182,9 @@ instance FromJSON IncomingMessage where
         mError <- message .:? "error"
         mData <- message .:? "result"
         let result = getResult mError mData
-                      where getResult (Just evalError) _ = Left evalError
-                            getResult _ (Just resultJson)      = Right $ encodeUtf8 resultJson
-                            getResult _ _                = Left "Malformed sandbox solution evaluation"
+                      where getResult (Just evalError) _  = Left evalError
+                            getResult _ (Just resultJson) = Right $ encodeUtf8 resultJson
+                            getResult _ _                 = Left "Malformed sandbox solution evaluation"
         return $ EvaluatedSolution taskId result
 
       String "puzzle.create"           -> CreatePuzzle   <$> message .: "puzzle"
