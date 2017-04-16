@@ -33,7 +33,7 @@ import qualified State
 import Message
 import Identity
 import Envelope
-import Session (EntityField(..), SessionAlias)
+import Session (EntityField(..), Session, SessionId, SessionAlias)
 import qualified Session as Session
 import Puzzle (EntityField(..), timeLimit)
 import Round (Round(..))
@@ -46,6 +46,13 @@ updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
   state <- takeMVar stateVar
   putMVar stateVar $ action state
+
+withSession :: MVar State -> SessionId -> (Session -> IO ()) -> IO ()
+withSession stateVar sessionId action = do
+  state <- readMVar stateVar
+  case State.getSession sessionId state of
+    Just session -> action session
+    Nothing -> return ()
 
 sendMessage :: WS.Connection -> Identity -> OutgoingMessage -> IO ()
 sendMessage connection to message =
@@ -71,7 +78,7 @@ startCountdownAction timer stateVar pool sessionAlias connection = do
   case State.getSessionByAlias sessionAlias state of
     Nothing -> do
       putStrLn $ "Session not found: " ++ show sessionAlias
-    Just (sessionId, session) -> do
+    Just (sessionId, _) -> do
       let countdownValue = State.getStartCountdown sessionId state
       case countdownValue of
         Just 0 ->
@@ -80,7 +87,8 @@ startCountdownAction timer stateVar pool sessionAlias connection = do
               -- create a new round
               currentTime <- getCurrentTime
               updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
-              mongo $ update sessionId [Rounds =. Session.rounds session]
+              withSession stateVar sessionId $ \session ->
+                mongo $ update sessionId [Rounds =. Session.rounds session]
               -- change phase to 'in progress'
               updateState stateVar $ State.setRoundPhase sessionId InProgress
               mongo $ update sessionId [RoundPhase =. InProgress]
@@ -197,9 +205,10 @@ app config stateVar pool connection = do
         LeaveSession sessionAlias participantId -> do
           state <- readMVar stateVar
           case State.getSessionByAlias sessionAlias state of
-            Just (sessionId, session) -> do
+            Just (sessionId, _) -> do
               updateState stateVar $ State.removeParticipant sessionId participantId
-              mongo $ update sessionId [Participants =. Session.participants session]
+              withSession stateVar sessionId $ \session ->
+                mongo $ update sessionId [Participants =. Session.participants session]
               sendMessage connection FrontService $ ParticipantLeft sessionAlias participantId
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
@@ -208,7 +217,7 @@ app config stateVar pool connection = do
           case State.getSessionByAlias sessionAlias state of
             Just (sessionId, session) -> do
               updateState stateVar $ State.setPuzzleIndex sessionId puzzleIndex
-              mongo $ update sessionId [PuzzleIndex =. Session.puzzleIndex session]
+              mongo $ update sessionId [PuzzleIndex =. puzzleIndex]
               case Session.lookupPuzzle puzzleIndex session of
                 Just puzzle -> do
                   sendMessage connection FrontService $ PuzzleChanged sessionAlias puzzleIndex puzzle
@@ -253,6 +262,7 @@ app config stateVar pool connection = do
               -- this update is not synced with the database, participant input is considered perishable
               updateState stateVar $ State.setParticipantInput sessionId participantId input
               transaction <- State.createSandboxTransaction sessionId sessionAlias participantId input timestamp
+              -- this update is not synced with the database because of possible performance implications
               updateState stateVar $ State.addSandboxTransaction transaction
               sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
