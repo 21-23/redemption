@@ -216,10 +216,13 @@ app config stateVar pool connection = do
           state <- readMVar stateVar
           case State.getSessionByAlias sessionAlias state of
             Just (sessionId, session) -> do
-              updateState stateVar $ State.setPuzzleIndex sessionId puzzleIndex
-              mongo $ update sessionId [PuzzleIndex =. puzzleIndex]
+              updateState stateVar $
+                State.setPuzzleIndex sessionId puzzleIndex
+                . State.setRoundPhase sessionId Idle
+              mongo $ update sessionId [PuzzleIndex =. puzzleIndex, RoundPhase =. Idle]
               case Session.lookupPuzzle puzzleIndex session of
                 Just puzzle -> do
+                  sendMessage connection FrontService $ RoundPhaseChanged sessionAlias Idle
                   sendMessage connection FrontService $ PuzzleChanged sessionAlias puzzleIndex puzzle
                 Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
