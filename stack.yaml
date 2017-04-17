@@ -44,8 +44,7 @@ extra-deps: [
   suspend-0.2.0.0,
   timers-0.2.0.3,
   persistent-2.7.0,
-  http-api-data-0.2.4,
-  persistent-mongoDB-2.5.0.1
+  persistent-mongoDB-2.6.0
 ]
 
 # Override default flag values for local packages and extra-deps
