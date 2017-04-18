@@ -13,7 +13,6 @@ import Data.Time.Clock
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
-import qualified Data.Sequence as Seq
 import Data.UUID (UUID)
 import Data.ByteString.Lazy (ByteString)
 
@@ -141,7 +140,7 @@ instance ToJSON OutgoingMessage where
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= (length $ puzzles session)
-        , "puzzle" .=  Seq.lookup (puzzleIndex session) (puzzles session)
+        , "puzzle" .=  getPuzzleForSessionState session
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
@@ -152,12 +151,20 @@ instance ToJSON OutgoingMessage where
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= (length $ puzzles session)
-        , "puzzle" .=  Seq.lookup (puzzleIndex session) (puzzles session)
+        , "puzzle" .= getPuzzleForSessionState session
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
         , "players" .= getPlayerRoundData session
         ]
+
+getPuzzleForSessionState :: Session -> Maybe Puzzle
+getPuzzleForSessionState session =
+  let getPuzzle = lookupPuzzle (puzzleIndex session) session
+   in case roundPhase session of
+        InProgress -> getPuzzle
+        End        -> getPuzzle
+        _          -> Nothing
 
 instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
