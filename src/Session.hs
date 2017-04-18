@@ -22,6 +22,8 @@ import qualified Data.Sequence as Seq
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime)
 import Data.Maybe (fromMaybe)
 import Data.ByteString.Lazy (ByteString)
+import Data.List (sortBy)
+import Data.Ord (comparing)
 
 import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
@@ -141,7 +143,7 @@ getPlayerAggregateScore participantId session@Session{rounds} =
 
 getPlayerRoundData :: Session -> [PlayerRoundData]
 getPlayerRoundData session@Session{participants, playerInput, gameMasterId} =
-  map f $ filter ((/= gameMasterId) . fst) $ Map.toList participants
+  sortBy (comparing aggregateScore) $ map f $ filter ((/= gameMasterId) . fst) $ Map.toList participants
     where f (playerId, _) = PlayerRoundData
                         { participantId = playerId
                         , inputLength = Text.length $ fromMaybe "" $ Map.lookup playerId playerInput
