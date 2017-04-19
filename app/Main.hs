@@ -65,7 +65,7 @@ stopRound stateVar pool connection sessionAlias = do
   case State.getSessionByAlias sessionAlias state of
     Just (sessionId, session) -> do
       updateState stateVar $ (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
-      mongo $ update sessionId [RoundPhase =. End]
+      mongo $ update sessionId [RoundPhase =. End, Rounds =. Session.rounds session]
       sendMessage connection SandboxService ResetSandbox
       sendMessage connection FrontService $ RoundPhaseChanged sessionAlias End
       sendMessage connection FrontService $ Score sessionAlias $ Session.getPlayerRoundData session
