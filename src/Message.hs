@@ -116,6 +116,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "input" .= input puzzle
         , "expected" .= expected puzzle
+        , "timeLimit" .= timeLimit puzzle
         ]
       toValue (EvaluateSolution taskId solution) =
         [ "taskId" .= taskId
