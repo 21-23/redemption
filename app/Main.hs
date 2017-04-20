@@ -173,7 +173,7 @@ app config stateVar pool connection = do
           updateState stateVar $ State.addSession session sessionId sessionTimers
           sendMessage connection InitService $ SessionCreated sessionAlias
 
-        JoinSession sessionAlias participantId -> do
+        JoinSession sessionAlias participantId requestedRole -> do
           state <- readMVar stateVar
           let stateSession = State.getSessionByAlias sessionAlias state
           maybeSession <- case stateSession of
@@ -191,15 +191,19 @@ app config stateVar pool connection = do
 
           case maybeSession of
             Just (sessionId, session) -> do
-              updateState stateVar $ State.addParticipant sessionId participantId
-              mongo $ update sessionId [Participants =. Session.participants session]
               let role = Session.getParticipantRole participantId session
                   participantData = ParticipantJoined sessionAlias participantId role
-              sendMessage connection FrontService participantData
-              let sessionStateMessage = case role of
-                                          Role.Player -> PlayerSessionState
-                                          Role.GameMaster -> GameMasterSessionState
-              sendMessage connection FrontService $ sessionStateMessage sessionAlias participantId session
+              if requestedRole == role
+                then do
+                  updateState stateVar $ State.addParticipant sessionId participantId
+                  mongo $ update sessionId [Participants =. Session.participants session]
+                  sendMessage connection FrontService participantData
+                  let sessionStateMessage = case role of
+                                              Role.Player -> PlayerSessionState
+                                              Role.GameMaster -> GameMasterSessionState
+                  sendMessage connection FrontService $ sessionStateMessage sessionAlias participantId session
+                else do
+                  sendMessage connection FrontService $ KickParticipant sessionAlias participantId
             Nothing -> putStrLn $ "Couldn't resolve session alias: " ++ show sessionAlias
 
         LeaveSession sessionAlias participantId -> do

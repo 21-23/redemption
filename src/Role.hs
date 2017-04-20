@@ -8,7 +8,7 @@ import Data.Aeson
 
 data Role
   = GameMaster
-  | Player
+  | Player deriving (Eq)
 
 instance ToJSON Role where
   toJSON GameMaster = String "game-master"

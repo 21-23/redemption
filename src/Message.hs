@@ -28,7 +28,7 @@ import PlayerRoundData (PlayerRoundData)
 
 data IncomingMessage
   = CreateSession ParticipantUid SessionAlias [PuzzleId]
-  | JoinSession SessionAlias ParticipantUid
+  | JoinSession SessionAlias ParticipantUid Role
   | LeaveSession SessionAlias ParticipantUid
   | SetPuzzleIndex SessionAlias Int
   | StartRound SessionAlias
@@ -42,6 +42,7 @@ data OutgoingMessage
   | SessionCreated SessionAlias
   | ParticipantJoined SessionAlias ParticipantUid Role
   | ParticipantLeft SessionAlias ParticipantUid
+  | KickParticipant SessionAlias ParticipantUid
   | PuzzleChanged SessionAlias Int Puzzle
   | RoundPhaseChanged SessionAlias RoundPhase
   | SetSandbox Puzzle
@@ -61,6 +62,7 @@ toName ArnauxCheckin {}           = "checkin"
 toName SessionCreated {}          = "session.created"
 toName ParticipantJoined {}       = "participant.joined"
 toName ParticipantLeft {}         = "participant.left"
+toName KickParticipant {}         = "participant.kick"
 toName PuzzleChanged {}           = "puzzle.changed"
 toName RoundPhaseChanged {}       = "roundPhase.changed"
 toName SetSandbox {}              = "sandbox.set"
@@ -86,6 +88,10 @@ instance ToJSON OutgoingMessage where
         , "role" .= role
         ]
       toValue (ParticipantLeft sessionId participantId) =
+        [ "sessionId" .= sessionId
+        , "participantId" .= participantId
+        ]
+      toValue (KickParticipant sessionId participantId) =
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
         ]
@@ -175,7 +181,10 @@ instance FromJSON IncomingMessage where
         <$> message .: "gameMasterId"
         <*> message .: "alias"
         <*> message .: "puzzles"
-      String "session.join"            -> JoinSession    <$> message .: "sessionId" <*> message .: "participantId"
+      String "session.join"            -> JoinSession
+        <$> message .: "sessionId"
+        <*> message .: "participantId"
+        <*> message .: "role"
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"
       String "round.start"             -> StartRound     <$> message .: "sessionId"
