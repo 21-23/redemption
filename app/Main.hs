@@ -41,6 +41,7 @@ import RoundPhase
 import SandboxTransaction (SandboxTransaction(..))
 import Solution (Solution(Solution))
 import qualified Role
+import SyntaxChecker (checkSyntax)
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -268,10 +269,20 @@ app config stateVar pool connection = do
             Just (sessionId, _) -> do
               -- this update is not synced with the database, participant input is considered perishable
               updateState stateVar $ State.setParticipantInput sessionId participantId input
-              transaction <- State.createSandboxTransaction sessionId sessionAlias participantId input timestamp
-              -- this update is not synced with the database because of possible performance implications
-              updateState stateVar $ State.addSandboxTransaction transaction
-              sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
+              case checkSyntax input of
+                Left unmatched -> do
+                  sendMessage connection FrontService $ SolutionEvaluated
+                                                          sessionAlias
+                                                          participantId
+                                                          (Left $ Text.snoc "Syntax Error: unmatched " unmatched)
+                                                          0
+                                                          (Text.length input)
+                                                          False
+                Right _ -> do
+                  transaction <- State.createSandboxTransaction sessionId sessionAlias participantId input timestamp
+                  -- this update is not synced with the database because of possible performance implications
+                  updateState stateVar $ State.addSandboxTransaction transaction
+                  sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
         EvaluatedSolution taskId result -> do
