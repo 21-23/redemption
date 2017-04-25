@@ -128,6 +128,11 @@ addSolution participantId solution session@Session{rounds} =
       session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
         where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
 
+getSolution :: ParticipantUid -> Session -> Maybe Solution
+getSolution participantId session = do
+  Round{solutions} <- getCurrentRound session
+  Map.lookup participantId solutions
+
 getPlayerAggregateScore :: ParticipantUid -> Session -> Maybe NominalDiffTime
 getPlayerAggregateScore participantId session@Session{rounds} =
   if Seq.null rounds

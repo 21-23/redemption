@@ -6,7 +6,7 @@ module State where
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, isJust)
 import           Control.Concurrent.Timer
 import           Data.UUID (UUID)
 import           Data.UUID.V4 (nextRandom)
@@ -145,7 +145,7 @@ addRound :: SessionId -> Round -> State -> State
 addRound sessionId newRound state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.addRound newRound
---
+
 setStartCountdown :: SessionId -> Int -> State -> State
 setStartCountdown sessionId value state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
@@ -189,3 +189,8 @@ addSolution :: SessionId -> ParticipantUid -> Solution -> State -> State
 addSolution sessionId participantId solution state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.addSolution participantId solution
+
+hasSolution :: SessionId -> ParticipantUid -> State -> Bool
+hasSolution sessionId participantId state = isJust $ do
+  session <- getSession sessionId state
+  Session.getSolution participantId session
