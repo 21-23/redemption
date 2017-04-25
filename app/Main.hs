@@ -267,7 +267,7 @@ app config stateVar pool connection = do
           state <- readMVar stateVar
           case State.getSessionByAlias sessionAlias state of
             Just (sessionId, _) -> do
-              if State.hasSolution sessionId participantId state
+              if not $ State.hasCorrectSolution sessionId participantId state
                 then do
                   -- this update is not synced with the database, participant input is considered perishable
                   updateState stateVar $ State.setParticipantInput sessionId participantId input

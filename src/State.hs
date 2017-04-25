@@ -6,7 +6,7 @@ module State where
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
-import           Data.Maybe (fromMaybe, isJust)
+import           Data.Maybe (fromMaybe)
 import           Control.Concurrent.Timer
 import           Data.UUID (UUID)
 import           Data.UUID.V4 (nextRandom)
@@ -20,7 +20,7 @@ import Round (Round)
 import RoundPhase
 import Puzzle
 import SandboxTransaction (SandboxTransaction(SandboxTransaction), taskId)
-import Solution (Solution)
+import Solution (Solution(..))
 
 data State = State
   { sessions :: Map SessionId Session
@@ -190,7 +190,8 @@ addSolution sessionId participantId solution state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.addSolution participantId solution
 
-hasSolution :: SessionId -> ParticipantUid -> State -> Bool
-hasSolution sessionId participantId state = isJust $ do
+hasCorrectSolution :: SessionId -> ParticipantUid -> State -> Bool
+hasCorrectSolution sessionId participantId state = fromMaybe False $ do
   session <- getSession sessionId state
-  Session.getSolution participantId session
+  Solution{correct} <- Session.getSolution participantId session
+  return correct
