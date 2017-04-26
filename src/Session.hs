@@ -133,6 +133,11 @@ getSolution participantId session = do
   Round{solutions} <- getCurrentRound session
   Map.lookup participantId solutions
 
+hasCorrectSolution :: ParticipantUid -> Session -> Bool
+hasCorrectSolution participantId session = fromMaybe False $ do
+  Solution{correct} <- getSolution participantId session
+  return correct
+
 getPlayerAggregateScore :: ParticipantUid -> Session -> Maybe NominalDiffTime
 getPlayerAggregateScore participantId session@Session{rounds} =
   if Seq.null rounds

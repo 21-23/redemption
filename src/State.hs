@@ -193,5 +193,4 @@ addSolution sessionId participantId solution state@State{sessions} =
 hasCorrectSolution :: SessionId -> ParticipantUid -> State -> Bool
 hasCorrectSolution sessionId participantId state = fromMaybe False $ do
   session <- getSession sessionId state
-  Solution{correct} <- Session.getSolution participantId session
-  return correct
+  return $ Session.hasCorrectSolution participantId session

@@ -152,6 +152,7 @@ instance ToJSON OutgoingMessage where
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
         , "playerInput" .= fromMaybe "" (Map.lookup participantId $ playerInput session)
+        , "solved" .= hasCorrectSolution participantId session
         ]
       toValue (GameMasterSessionState sessionId participantId session) =
         [ "sessionId" .= sessionId
