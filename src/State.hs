@@ -12,7 +12,6 @@ import           Data.UUID (UUID)
 import           Data.UUID.V4 (nextRandom)
 import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime, NominalDiffTime)
-import           Data.ByteString.Lazy (ByteString)
 
 import Participant
 import Session
@@ -170,13 +169,6 @@ setParticipantInput :: SessionId -> ParticipantUid -> Text -> State -> State
 setParticipantInput sessionId participantId input state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.setParticipantInput participantId input
-
-isSolutionCorrect :: SessionId -> ByteString -> State -> Bool
-isSolutionCorrect sessionId json state =
-  case getSession sessionId state of
-    Just session ->
-      Session.isSolutionCorrect json session
-    Nothing -> False
 
 getSolutionTime :: SessionId -> UTCTime -> State -> NominalDiffTime
 getSolutionTime sessionId time state =

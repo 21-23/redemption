@@ -12,16 +12,12 @@ module Session where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Data.Text.Lazy (fromStrict)
-import Data.Text.Lazy.Encoding (encodeUtf8)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Aeson (Value, decode)
 import Data.Sequence (Seq, (|>), ViewR(..))
 import qualified Data.Sequence as Seq
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime)
 import Data.Maybe (fromMaybe)
-import Data.ByteString.Lazy (ByteString)
 import Data.List (sortBy)
 import Data.Ord (comparing)
 
@@ -107,19 +103,11 @@ setParticipantInput :: ParticipantUid -> Text -> Session -> Session
 setParticipantInput participantId string session@Session{playerInput} =
   session { playerInput = Map.insert participantId string playerInput }
 
-isSolutionCorrect :: ByteString -> Session -> Bool
-isSolutionCorrect solutionJson session = fromMaybe False $ do
-  puzzle <- lookupPuzzle (puzzleIndex session) session
-  expectedData <- decode $ encodeUtf8 $ fromStrict $ expected puzzle
-  solutionData <- (decode solutionJson :: Maybe Value)
-  return $ solutionData == expectedData
-
 getSolutionTime :: UTCTime -> Session -> NominalDiffTime
 getSolutionTime time session =
   case getCurrentRound session of
     Just currentRound -> diffUTCTime time $ Round.startTime currentRound
     Nothing -> 0
-
 
 addSolution :: ParticipantUid -> Solution -> Session -> Session
 addSolution participantId solution session@Session{rounds} =
