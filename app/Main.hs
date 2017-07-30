@@ -295,14 +295,17 @@ app config stateVar pool connection = do
             Just SandboxTransaction{sessionId, sessionAlias, participantId, input, time} -> do
               let solutionTime = State.getSolutionTime sessionId time state
               let solutionLength = Text.length input
-              updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correctness
-              sendMessage connection FrontService $ SolutionEvaluated
-                                                      sessionAlias
-                                                      participantId
-                                                      result
-                                                      solutionTime
-                                                      solutionLength
-                                                      correctness
+              if not $ State.hasCorrectSolution sessionId participantId state
+                then do
+                  updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correctness
+                  sendMessage connection FrontService $ SolutionEvaluated
+                                                          sessionAlias
+                                                          participantId
+                                                          result
+                                                          solutionTime
+                                                          solutionLength
+                                                          correctness
+                else return ()
 
             Nothing -> putStrLn $ "Transaction not found: " ++ show taskId
 
