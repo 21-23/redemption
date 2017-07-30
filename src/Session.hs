@@ -40,6 +40,7 @@ import SequencePersistField()
 import Solution (Solution(..))
 import qualified Solution()
 import PlayerRoundData (PlayerRoundData(..))
+import SolutionCorrectness (SolutionCorrectness(Correct))
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -136,7 +137,7 @@ getSolution participantId session = do
 hasCorrectSolution :: ParticipantUid -> Session -> Bool
 hasCorrectSolution participantId session = fromMaybe False $ do
   Solution{correct} <- getSolution participantId session
-  return correct
+  return $ correct == Correct
 
 getPlayerAggregateScore :: ParticipantUid -> Session -> Maybe NominalDiffTime
 getPlayerAggregateScore participantId session@Session{rounds} =
@@ -146,9 +147,9 @@ getPlayerAggregateScore participantId session@Session{rounds} =
                   let puzzle = lookupPuzzle puzzleIndex session
                       defaultTime = fromMaybe 0 $ timeLimit <$> puzzle
                    in acc + case Map.lookup participantId solutions of
-                             Just (Solution _ time True)  -> time
-                             Just (Solution _ _    False) -> defaultTime
-                             Nothing                      -> defaultTime
+                             Just (Solution _ time Correct) -> time
+                             Just _                         -> defaultTime
+                             Nothing                        -> defaultTime
                   ) 0 rounds
 
 getPlayerRoundData :: Session -> [PlayerRoundData]

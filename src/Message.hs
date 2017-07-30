@@ -24,6 +24,7 @@ import Puzzle
 import Role
 import UUIDPersistField()
 import PlayerRoundData (PlayerRoundData)
+import SolutionCorrectness (SolutionCorrectness(..))
 
 data IncomingMessage
   = CreateSession ParticipantUid SessionAlias [PuzzleId]
@@ -33,7 +34,7 @@ data IncomingMessage
   | StartRound SessionAlias
   | StopRound SessionAlias
   | ParticipantInput SessionAlias ParticipantUid Text UTCTime
-  | EvaluatedSolution UUID (Either Text ByteString)
+  | EvaluatedSolution UUID (Either Text ByteString) SolutionCorrectness
   | CreatePuzzle Puzzle
 
 data OutgoingMessage
@@ -50,7 +51,7 @@ data OutgoingMessage
   | RoundCountdownChanged SessionAlias Int
   | RoundPuzzle SessionAlias Puzzle
   | EvaluateSolution UUID Text
-  | SolutionEvaluated SessionAlias ParticipantUid (Either Text ByteString) NominalDiffTime Int Bool
+  | SolutionEvaluated SessionAlias ParticipantUid (Either Text ByteString) NominalDiffTime Int SolutionCorrectness
   | Score SessionAlias [PlayerRoundData]
   | PuzzleCreated PuzzleId
   | PlayerSessionState SessionAlias ParticipantUid Session
@@ -198,11 +199,13 @@ instance FromJSON IncomingMessage where
         taskId <- message .: "taskId"
         mError <- message .:? "error"
         mData <- message .:? "result"
+        correct <- message .:? "correct"
         let result = getResult mError mData
                       where getResult (Just evalError) _  = Left evalError
                             getResult _ (Just resultJson) = Right $ encodeUtf8 resultJson
                             getResult _ _                 = Left "Malformed sandbox solution evaluation"
-        return $ EvaluatedSolution taskId result
+            correctness = fromMaybe Incorrect correct
+        return $ EvaluatedSolution taskId result correctness
 
       String "puzzle.create"           -> CreatePuzzle   <$> message .: "puzzle"
 

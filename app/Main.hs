@@ -42,6 +42,7 @@ import SandboxTransaction (SandboxTransaction(..))
 import Solution (Solution(Solution))
 import qualified Role
 import SyntaxChecker (checkSyntax)
+import SolutionCorrectness (SolutionCorrectness(..))
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -279,7 +280,7 @@ app config stateVar pool connection = do
                                                               (Left $ Text.snoc "Syntax Error: unmatched " unmatched)
                                                               0
                                                               (Text.length input)
-                                                              False
+                                                              Incorrect
                     Right _ -> do
                       transaction <- State.createSandboxTransaction sessionId sessionAlias participantId input timestamp
                       -- this update is not synced with the database because of possible performance implications
@@ -288,23 +289,20 @@ app config stateVar pool connection = do
                 else return ()
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
-        EvaluatedSolution taskId result -> do
+        EvaluatedSolution taskId result correctness -> do
           state <- readMVar stateVar
           case State.getSandboxTransaction taskId state of
             Just SandboxTransaction{sessionId, sessionAlias, participantId, input, time} -> do
               let solutionTime = State.getSolutionTime sessionId time state
               let solutionLength = Text.length input
-                  correct = case result of
-                              Left _ -> False
-                              Right resultJson -> State.isSolutionCorrect sessionId resultJson state
-              updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correct
+              updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correctness
               sendMessage connection FrontService $ SolutionEvaluated
                                                       sessionAlias
                                                       participantId
                                                       result
                                                       solutionTime
                                                       solutionLength
-                                                      correct
+                                                      correctness
 
             Nothing -> putStrLn $ "Transaction not found: " ++ show taskId
 

@@ -18,11 +18,12 @@ import Data.Text
 import Data.Time.Clock
 
 import NominalDiffTimePersistField()
+import SolutionCorrectness (SolutionCorrectness())
 
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Solution json
     code Text
     time NominalDiffTime
-    correct Bool
+    correct SolutionCorrectness
 |]
