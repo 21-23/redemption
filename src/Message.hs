@@ -115,6 +115,8 @@ instance ToJSON OutgoingMessage where
         ]
       toValue (SetSandbox puzzle) =
         [ "input" .= input puzzle
+        , "expected" .= expected puzzle
+        , "hidden" .= hidden puzzle
         , "settings" .= sandboxSettings puzzle
         ]
       toValue ResetSandbox = []
