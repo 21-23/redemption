@@ -30,7 +30,6 @@ library
                      , NominalDiffTimePersistField
                      , SequencePersistField
                      , UUIDPersistField
-                     , UUIDAeson
                      , Role
                      , SandboxTransaction
                      , PlayerRoundData
