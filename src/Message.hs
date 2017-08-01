@@ -11,7 +11,6 @@ import Data.Aeson
 import Data.Semigroup
 import Data.Time.Clock
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.UUID (UUID)
 import Data.ByteString.Lazy (ByteString)
@@ -154,7 +153,7 @@ instance ToJSON OutgoingMessage where
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
-        , "playerInput" .= fromMaybe "" (Map.lookup participantId $ playerInput session)
+        , "solution" .= getSolution participantId session
         , "solved" .= hasCorrectSolution participantId session
         ]
       toValue (GameMasterSessionState sessionId participantId session) =
