@@ -149,7 +149,7 @@ instance ToJSON OutgoingMessage where
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= (length $ puzzles session)
-        , "puzzle" .=  getPuzzleForSessionState session
+        , "puzzle" .= (toSimpleJSON <$> getPuzzleForSessionState session)
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
@@ -161,7 +161,7 @@ instance ToJSON OutgoingMessage where
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= (length $ puzzles session)
-        , "puzzle" .= lookupPuzzle (puzzleIndex session) session
+        , "puzzle" .= (toSimpleJSON <$> lookupPuzzle (puzzleIndex session) session)
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
