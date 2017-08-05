@@ -22,7 +22,6 @@ import RoundPhase
 import Puzzle
 import Role
 import UUIDPersistField()
-import UUIDAeson()
 import PlayerRoundData (PlayerRoundData)
 import SolutionCorrectness (SolutionCorrectness(..))
 

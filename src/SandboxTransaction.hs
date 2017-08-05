@@ -19,7 +19,6 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 
 import UUIDPersistField()
-import UUIDAeson()
 import Session (SessionId, SessionAlias)
 import Participant (ParticipantUid)
 
