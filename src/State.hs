@@ -48,7 +48,7 @@ createSession gameMasterId alias puzzleList = Session
   , participants   = Map.empty
   , rounds         = Seq.empty
   , playerInput    = Map.empty
-  , puzzleIndex    = 0
+  , puzzleIndex    = Nothing
   , roundPhase     = Idle
   , startCountdown = 0
   , roundCountdown = 0
@@ -125,7 +125,7 @@ removeParticipant sessionId participantId state@State{sessions} =
   state { sessions = Map.adjust remove sessionId sessions }
     where remove = Session.removeParticipant participantId
 
-setPuzzleIndex :: SessionId -> Int -> State -> State
+setPuzzleIndex :: SessionId -> Maybe Int -> State -> State
 setPuzzleIndex sessionId index state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.setPuzzleIndex index
@@ -133,7 +133,7 @@ setPuzzleIndex sessionId index state@State{sessions} =
 getPuzzleIndex :: SessionId -> State -> Maybe Int
 getPuzzleIndex sessionId State{sessions} = do
   session <- Map.lookup sessionId sessions
-  return $ Session.puzzleIndex session
+  Session.puzzleIndex session
 
 setRoundPhase :: SessionId -> RoundPhase -> State -> State
 setRoundPhase sessionId phase state@State{sessions} =

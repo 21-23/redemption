@@ -51,7 +51,7 @@ Session json
     participants   (Map ParticipantUid Participant)
     rounds         (Seq Round)
     playerInput    (Map ParticipantUid Text)
-    puzzleIndex    Int
+    puzzleIndex    Int Maybe
     roundPhase     RoundPhase
     startCountdown Int
     roundCountdown Int
@@ -72,7 +72,7 @@ removeParticipant :: ParticipantUid -> Session -> Session
 removeParticipant participantId session@Session{participants} =
   session { participants = Map.delete participantId participants }
 
-setPuzzleIndex :: Int -> Session -> Session
+setPuzzleIndex :: Maybe Int -> Session -> Session
 setPuzzleIndex newIndex session = session { puzzleIndex = newIndex }
 
 lookupPuzzle :: Int -> Session -> Maybe Puzzle

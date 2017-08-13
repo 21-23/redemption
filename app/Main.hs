@@ -226,11 +226,16 @@ app config stateVar pool connection = do
                 State.setPuzzleIndex sessionId puzzleIndex
                 . State.setRoundPhase sessionId Idle
               mongo $ update sessionId [PuzzleIndex =. puzzleIndex, RoundPhase =. Idle]
-              case Session.lookupPuzzle puzzleIndex session of
-                Just puzzle -> do
+              case puzzleIndex of
+                Just index -> do
+                  case Session.lookupPuzzle index session of
+                    Just puzzle -> do
+                      sendMessage connection FrontService $ RoundPhaseChanged sessionAlias Idle
+                      sendMessage connection FrontService $ PuzzleChanged sessionAlias (Just index) (Just puzzle)
+                    Nothing -> putStrLn $ "Puzzle not found: index " ++ show index
+                Nothing -> do
+                  sendMessage connection FrontService $ PuzzleChanged sessionAlias Nothing Nothing
                   sendMessage connection FrontService $ RoundPhaseChanged sessionAlias Idle
-                  sendMessage connection FrontService $ PuzzleChanged sessionAlias puzzleIndex puzzle
-                Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
         StartRound sessionAlias -> do

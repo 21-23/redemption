@@ -29,7 +29,7 @@ data IncomingMessage
   = CreateSession ParticipantUid SessionAlias [PuzzleId]
   | JoinSession SessionAlias ParticipantUid Role
   | LeaveSession SessionAlias ParticipantUid
-  | SetPuzzleIndex SessionAlias Int
+  | SetPuzzleIndex SessionAlias (Maybe Int)
   | StartRound SessionAlias
   | StopRound SessionAlias
   | ParticipantInput SessionAlias ParticipantUid Text UTCTime
@@ -42,7 +42,7 @@ data OutgoingMessage
   | ParticipantJoined SessionAlias ParticipantUid Role
   | ParticipantLeft SessionAlias ParticipantUid
   | KickParticipant SessionAlias ParticipantUid
-  | PuzzleChanged SessionAlias Int Puzzle
+  | PuzzleChanged SessionAlias (Maybe Int) (Maybe Puzzle)
   | RoundPhaseChanged SessionAlias RoundPhase
   | SetSandbox Puzzle
   | ResetSandbox
@@ -97,8 +97,8 @@ instance ToJSON OutgoingMessage where
       toValue (PuzzleChanged sessionId puzzleIndex puzzle) =
         [ "sessionId" .= sessionId
         , "puzzleIndex" .= puzzleIndex
-        , "puzzleName" .= name puzzle
-        , "timeLimit" .= timeLimit puzzle
+        , "puzzleName" .= (name <$> puzzle)
+        , "timeLimit" .= (timeLimit <$> puzzle)
         ]
       toValue (RoundPhaseChanged sessionId phase) =
         [ "sessionId" .= sessionId
@@ -160,7 +160,10 @@ instance ToJSON OutgoingMessage where
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= (length $ puzzles session)
-        , "puzzle" .= (toSimpleJSON <$> lookupPuzzle (puzzleIndex session) session)
+        , "puzzle" .= do
+            index <- puzzleIndex session
+            puzzle <- lookupPuzzle index session
+            return $ toSimpleJSON puzzle
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
@@ -169,7 +172,9 @@ instance ToJSON OutgoingMessage where
 
 getPuzzleForSessionState :: Session -> Maybe Puzzle
 getPuzzleForSessionState session =
-  let getPuzzle = lookupPuzzle (puzzleIndex session) session
+  let getPuzzle = do
+                    index <- puzzleIndex session
+                    lookupPuzzle index session
    in case roundPhase session of
         InProgress -> getPuzzle
         End        -> getPuzzle
