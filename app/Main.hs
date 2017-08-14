@@ -120,7 +120,7 @@ startCountdownAction timer stateVar pool sessionAlias connection = do
           let nextValue = value - 1
           updateState stateVar $ State.setStartCountdown sessionId nextValue
           mongo $ update sessionId [StartCountdown =. nextValue]
-          sendMessage connection FrontService $ StartCountdownChanged sessionAlias nextValue
+          sendMessage connection FrontService $ StartCountdownChanged sessionAlias value
         Nothing -> return ()
 
 roundCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionAlias -> WS.Connection -> IO ()
@@ -254,7 +254,7 @@ app config stateVar pool connection = do
                   case State.getStartTimer sessionId state of
                     Just timer -> do
                       _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionAlias connection) (sDelay 1)
-                      sendMessage connection FrontService $ StartCountdownChanged sessionAlias countdownValue
+                      sendMessage connection FrontService $ StartCountdownChanged sessionAlias $ countdownValue + 1
                     Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                 Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
