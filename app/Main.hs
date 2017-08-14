@@ -41,8 +41,6 @@ import RoundPhase
 import SandboxTransaction (SandboxTransaction(..))
 import Solution (Solution(Solution))
 import qualified Role
-import SyntaxChecker (checkSyntax)
-import SolutionCorrectness (SolutionCorrectness(..))
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -277,20 +275,10 @@ app config stateVar pool connection = do
                 then do
                   -- this update is not synced with the database, participant input is considered perishable
                   updateState stateVar $ State.setParticipantInput sessionId participantId input
-                  case checkSyntax input of
-                    Left unmatched -> do
-                      sendMessage connection FrontService $ SolutionEvaluated
-                                                              sessionAlias
-                                                              participantId
-                                                              (Left $ Text.snoc "Syntax Error: unmatched " unmatched)
-                                                              0
-                                                              (Text.length input)
-                                                              Incorrect
-                    Right _ -> do
-                      transaction <- State.createSandboxTransaction sessionId sessionAlias participantId input timestamp
-                      -- this update is not synced with the database because of possible performance implications
-                      updateState stateVar $ State.addSandboxTransaction transaction
-                      sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
+                  transaction <- State.createSandboxTransaction sessionId sessionAlias participantId input timestamp
+                  -- this update is not synced with the database because of possible performance implications
+                  updateState stateVar $ State.addSandboxTransaction transaction
+                  sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
                 else return ()
             Nothing -> putStrLn $ "Session not found: " ++ show sessionAlias
 
