@@ -19,7 +19,7 @@ import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
 
 import UUIDPersistField()
-import Session (SessionId, SessionAlias)
+import Session (SessionId)
 import Participant (ParticipantUid)
 
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
@@ -27,7 +27,6 @@ let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = Fal
 SandboxTransaction json
   taskId        UUID
   sessionId     SessionId
-  sessionAlias  SessionAlias
   participantId ParticipantUid
   input         Text
   time          UTCTime
