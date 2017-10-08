@@ -5,7 +5,7 @@
 module Main where
 
 import           Control.Concurrent
-import           Control.Monad          (forever)
+import           Control.Monad          (forever, unless)
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Network                (PortID(PortNumber))
@@ -34,7 +34,7 @@ import Message
 import Identity
 import Envelope
 import Session (EntityField(..), Session, SessionId)
-import qualified Session as Session
+import qualified Session
 import Puzzle (EntityField(..), timeLimit)
 import Round (Round(..))
 import RoundPhase
@@ -64,7 +64,7 @@ stopRound stateVar pool connection sessionId = do
   state <- readMVar stateVar
   case State.getSession sessionId state of
     Just session -> do
-      updateState stateVar $ (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
+      updateState stateVar (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
       mongo $ update sessionId [RoundPhase =. End, Rounds =. Session.rounds session]
       sendMessage connection SandboxService ResetSandbox
       sendMessage connection FrontService $ RoundPhaseChanged sessionId End
@@ -76,8 +76,7 @@ startCountdownAction timer stateVar pool sessionId connection = do
   let mongo = runMongoDBAction pool
   state <- readMVar stateVar
   case State.getSession sessionId state of
-    Nothing -> do
-      putStrLn $ "Session not found: " ++ show sessionId
+    Nothing -> putStrLn $ "Session not found: " ++ show sessionId
     Just _ -> do
       let countdownValue = State.getStartCountdown sessionId state
       case countdownValue of
@@ -202,7 +201,7 @@ app config stateVar pool connection = do
                                               Role.Player -> PlayerSessionState
                                               Role.GameMaster -> GameMasterSessionState
                   sendMessage connection FrontService $ sessionStateMessage sessionId participantId session
-                else do
+                else
                   sendMessage connection FrontService $ KickParticipant sessionId participantId
             Nothing -> putStrLn $ "Couldn't resolve session alias: " ++ show sessionAlias
 
@@ -225,7 +224,7 @@ app config stateVar pool connection = do
                 . State.setRoundPhase sessionId Idle
               mongo $ update sessionId [PuzzleIndex =. puzzleIndex, RoundPhase =. Idle]
               case puzzleIndex of
-                Just index -> do
+                Just index ->
                   case Session.lookupPuzzle index session of
                     Just puzzle -> do
                       sendMessage connection FrontService $ RoundPhaseChanged sessionId Idle
@@ -243,7 +242,7 @@ app config stateVar pool connection = do
               updateState stateVar $ State.setRoundPhase sessionId Countdown
               mongo $ update sessionId [RoundPhase =. Countdown]
               let puzzleIndex = State.getPuzzleIndex sessionId state
-              let maybePuzzle = puzzleIndex >>= (flip Session.lookupPuzzle) session
+              let maybePuzzle = puzzleIndex >>= flip Session.lookupPuzzle session
               case maybePuzzle of
                 Just puzzle -> do
                   sendMessage connection SandboxService $ SetSandbox puzzle
@@ -270,16 +269,14 @@ app config stateVar pool connection = do
         ParticipantInput sessionId participantId input timestamp -> do
           state <- readMVar stateVar
           case State.getSession sessionId state of
-            Just _ -> do
-              if not $ State.hasCorrectSolution sessionId participantId state
-                then do
+            Just _ ->
+              unless (State.hasCorrectSolution sessionId participantId state) $ do
                   -- this update is not synced with the database, participant input is considered perishable
                   updateState stateVar $ State.setParticipantInput sessionId participantId input
                   transaction <- State.createSandboxTransaction sessionId participantId input timestamp
                   -- this update is not synced with the database because of possible performance implications
                   updateState stateVar $ State.addSandboxTransaction transaction
                   sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
-                else return ()
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         EvaluatedSolution taskId result correctness -> do
@@ -288,8 +285,7 @@ app config stateVar pool connection = do
             Just SandboxTransaction{sessionId, participantId, input, time} -> do
               let solutionTime = State.getSolutionTime sessionId time state
               let solutionLength = Text.length input
-              if not $ State.hasCorrectSolution sessionId participantId state
-                then do
+              unless (State.hasCorrectSolution sessionId participantId state) $ do
                   updateState stateVar $ State.addSolution sessionId participantId $ Solution input solutionTime correctness
                   sendMessage connection FrontService $ SolutionEvaluated
                                                           sessionId
@@ -298,8 +294,6 @@ app config stateVar pool connection = do
                                                           solutionTime
                                                           solutionLength
                                                           correctness
-                else return ()
-
             Nothing -> putStrLn $ "Transaction not found: " ++ show taskId
 
 
