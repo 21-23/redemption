@@ -37,6 +37,7 @@ import Solution (Solution(..))
 import qualified Solution()
 import PlayerRoundData (PlayerRoundData(..))
 import SolutionCorrectness (SolutionCorrectness(Correct))
+import Game (Game)
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -46,6 +47,7 @@ type SessionAlias = Text
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
+    game           Game
     gameMasterId   ParticipantUid
     puzzles        (Seq Puzzle)
     participants   (Map ParticipantUid Participant)

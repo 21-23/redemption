@@ -19,6 +19,7 @@ import RoundPhase
 import Puzzle
 import SandboxTransaction (SandboxTransaction(SandboxTransaction), taskId)
 import Solution (Solution(..))
+import Game (Game)
 
 data State = State
   { sessions :: Map SessionId Session
@@ -40,9 +41,10 @@ empty = State
   , aliases = Map.empty
   }
 
-createSession :: ParticipantUid -> SessionAlias -> [Puzzle] -> Session
-createSession gameMasterId alias puzzleList = Session
-  { gameMasterId
+createSession :: Game -> ParticipantUid -> SessionAlias -> [Puzzle] -> Session
+createSession game gameMasterId alias puzzleList = Session
+  { game
+  , gameMasterId
   , puzzles        = Seq.fromList puzzleList
   , participants   = Map.empty
   , rounds         = Seq.empty
