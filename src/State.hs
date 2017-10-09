@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module State where
@@ -61,10 +60,10 @@ createTimers = do
   roundTmr <- newTimer
   return $ SessionTimers startTmr roundTmr
 
-createSandboxTransaction :: SessionId -> SessionAlias -> ParticipantUid -> Text -> UTCTime -> IO SandboxTransaction
-createSandboxTransaction sessionId sessionAlias participantId input time = do
+createSandboxTransaction :: SessionId -> ParticipantUid -> Text -> UTCTime -> IO SandboxTransaction
+createSandboxTransaction sessionId participantId input time = do
   taskId <- nextRandom
-  return $ SandboxTransaction taskId sessionId sessionAlias participantId input time
+  return $ SandboxTransaction taskId sessionId participantId input time
 
 addSandboxTransaction :: SandboxTransaction -> State -> State
 addSandboxTransaction transaction@SandboxTransaction{taskId} state@State{sandboxTransactions} =

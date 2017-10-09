@@ -28,33 +28,33 @@ import SolutionCorrectness (SolutionCorrectness(..))
 data IncomingMessage
   = CreateSession ParticipantUid SessionAlias [PuzzleId]
   | JoinSession SessionAlias ParticipantUid Role
-  | LeaveSession SessionAlias ParticipantUid
-  | SetPuzzleIndex SessionAlias (Maybe Int)
-  | StartRound SessionAlias
-  | StopRound SessionAlias
-  | ParticipantInput SessionAlias ParticipantUid Text UTCTime
+  | LeaveSession SessionId ParticipantUid
+  | SetPuzzleIndex SessionId (Maybe Int)
+  | StartRound SessionId
+  | StopRound SessionId
+  | ParticipantInput SessionId ParticipantUid Text UTCTime
   | EvaluatedSolution UUID (Either Text ByteString) SolutionCorrectness
   | CreatePuzzle Puzzle
 
 data OutgoingMessage
   = ArnauxCheckin Identity
-  | SessionCreated SessionAlias
-  | ParticipantJoined SessionAlias ParticipantUid Role
-  | ParticipantLeft SessionAlias ParticipantUid
-  | KickParticipant SessionAlias ParticipantUid
-  | PuzzleChanged SessionAlias (Maybe Int) (Maybe Puzzle)
-  | RoundPhaseChanged SessionAlias RoundPhase
+  | SessionCreated SessionId
+  | ParticipantJoined SessionId ParticipantUid Role
+  | ParticipantLeft SessionId ParticipantUid
+  | KickParticipant SessionId ParticipantUid
+  | PuzzleChanged SessionId (Maybe Int) (Maybe Puzzle)
+  | RoundPhaseChanged SessionId RoundPhase
   | SetSandbox Puzzle
   | ResetSandbox
-  | StartCountdownChanged SessionAlias Int
-  | RoundCountdownChanged SessionAlias Int
-  | RoundPuzzle SessionAlias Puzzle
+  | StartCountdownChanged SessionId Int
+  | RoundCountdownChanged SessionId Int
+  | RoundPuzzle SessionId Puzzle
   | EvaluateSolution UUID Text
-  | SolutionEvaluated SessionAlias ParticipantUid (Either Text ByteString) NominalDiffTime Int SolutionCorrectness
-  | Score SessionAlias [PlayerRoundData]
+  | SolutionEvaluated SessionId ParticipantUid (Either Text ByteString) NominalDiffTime Int SolutionCorrectness
+  | Score SessionId [PlayerRoundData]
   | PuzzleCreated PuzzleId
-  | PlayerSessionState SessionAlias ParticipantUid Session
-  | GameMasterSessionState SessionAlias ParticipantUid Session
+  | PlayerSessionState SessionId ParticipantUid Session
+  | GameMasterSessionState SessionId ParticipantUid Session
 
 toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"
@@ -147,7 +147,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
-        , "puzzleCount" .= (length $ puzzles session)
+        , "puzzleCount" .= length (puzzles session)
         , "puzzle" .= (toSimpleJSON <$> getPuzzleForSessionState session)
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
@@ -159,7 +159,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
-        , "puzzleCount" .= (length $ puzzles session)
+        , "puzzleCount" .= length (puzzles session)
         , "puzzle" .= do
             index <- puzzleIndex session
             puzzle <- lookupPuzzle index session
