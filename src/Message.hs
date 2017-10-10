@@ -19,7 +19,8 @@ import Identity
 import Participant
 import Session
 import RoundPhase
-import Puzzle
+import Puzzle (Puzzle, PuzzleId, name, input, expected, hidden, options, toSimpleJSON)
+import PuzzleOptions (timeLimit, sandboxSettings)
 import Role
 import UUIDPersistField()
 import PlayerRoundData (PlayerRoundData)
@@ -107,7 +108,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "puzzleIndex" .= puzzleIndex
         , "puzzleName" .= (name <$> puzzle)
-        , "timeLimit" .= (timeLimit <$> puzzle)
+        , "timeLimit" .= (timeLimit . options <$> puzzle)
         ]
       toValue (RoundPhaseChanged sessionId phase) =
         [ "sessionId" .= sessionId
@@ -125,14 +126,14 @@ instance ToJSON OutgoingMessage where
         [ "input" .= input puzzle
         , "expected" .= expected puzzle
         , "hidden" .= hidden puzzle
-        , "settings" .= sandboxSettings puzzle
+        , "settings" .= sandboxSettings (options puzzle)
         ]
       toValue ResetSandbox = []
       toValue (RoundPuzzle sessionId puzzle) =
         [ "sessionId" .= sessionId
         , "input" .= input puzzle
         , "expected" .= expected puzzle
-        , "timeLimit" .= timeLimit puzzle
+        , "timeLimit" .= timeLimit (options puzzle)
         ]
       toValue (EvaluateSolution taskId solution) =
         [ "taskId" .= taskId

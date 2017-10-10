@@ -16,7 +16,7 @@ import Participant
 import Session
 import Round (Round)
 import RoundPhase
-import Puzzle
+import Puzzle (Puzzle)
 import SandboxTransaction (SandboxTransaction(SandboxTransaction), taskId)
 import Solution (Solution(..))
 import Game (Game)

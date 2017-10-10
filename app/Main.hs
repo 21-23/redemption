@@ -35,7 +35,8 @@ import Identity
 import Envelope
 import Session (EntityField(..), Session, SessionId)
 import qualified Session
-import Puzzle (EntityField(..), timeLimit)
+import Puzzle (EntityField(PuzzleId), options)
+import PuzzleOptions (timeLimit)
 import Round (Round(..))
 import RoundPhase
 import SandboxTransaction (SandboxTransaction(..))
@@ -99,7 +100,7 @@ startCountdownAction timer stateVar pool sessionId connection = do
                   -- send round puzzle
                   sendMessage connection FrontService $ RoundPuzzle sessionId puzzle
                   -- start round countdown
-                  let roundCountdownValue = convert $ timeLimit puzzle
+                  let roundCountdownValue = convert $ timeLimit $ options puzzle
                   updateState stateVar $ State.setRoundCountdown sessionId roundCountdownValue
                   mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
                   case State.getRoundTimer sessionId state of

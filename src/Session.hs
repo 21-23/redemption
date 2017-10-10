@@ -27,7 +27,8 @@ import Database.Persist.MongoDB
 
 import Participant
 import RoundPhase
-import Puzzle
+import Puzzle (Puzzle, options)
+import PuzzleOptions (timeLimit)
 import Round (Round(Round, solutions))
 import qualified Round
 import Role (Role)
@@ -135,7 +136,7 @@ getPlayerAggregateScore participantId session@Session{rounds} =
     then Nothing
     else Just $ foldl (\acc (Round puzzleIndex _ solutions) ->
                   let puzzle = lookupPuzzle puzzleIndex session
-                      defaultTime = fromMaybe 0 $ timeLimit <$> puzzle
+                      defaultTime = fromMaybe 0 $ timeLimit . options <$> puzzle
                    in acc + case Map.lookup participantId solutions of
                              Just (Solution _ time Correct) -> time
                              Just _                         -> defaultTime
