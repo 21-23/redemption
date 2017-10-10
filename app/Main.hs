@@ -35,7 +35,8 @@ import Identity
 import Envelope
 import Session (EntityField(..), Session, SessionId)
 import qualified Session
-import Puzzle (EntityField(..), timeLimit)
+import Puzzle (EntityField(PuzzleId), options)
+import PuzzleOptions (timeLimit)
 import Round (Round(..))
 import RoundPhase
 import SandboxTransaction (SandboxTransaction(..))
@@ -99,7 +100,7 @@ startCountdownAction timer stateVar pool sessionId connection = do
                   -- send round puzzle
                   sendMessage connection FrontService $ RoundPuzzle sessionId puzzle
                   -- start round countdown
-                  let roundCountdownValue = convert $ timeLimit puzzle
+                  let roundCountdownValue = convert $ timeLimit $ options puzzle
                   updateState stateVar $ State.setRoundCountdown sessionId roundCountdownValue
                   mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
                   case State.getRoundTimer sessionId state of
@@ -163,22 +164,22 @@ app config stateVar pool connection = do
           puzzleId <- mongo $ insert puzzle
           sendMessage connection InitService $ PuzzleCreated puzzleId
 
-        CreateSession gameMasterId sessionAlias puzzleIds -> do
+        CreateSession game gameMasterId sessionAlias puzzleIds -> do
           puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
-          let session = State.createSession gameMasterId sessionAlias (entityVal <$> puzzles)
+          let session = State.createSession game gameMasterId sessionAlias (entityVal <$> puzzles)
           sessionId <- mongo $ insert session
           mongo $ repsert sessionId session
           sessionTimers <- State.createTimers
           updateState stateVar $ State.addSession session sessionId sessionTimers
           sendMessage connection InitService $ SessionCreated sessionId
 
-        JoinSession sessionAlias participantId requestedRole -> do
+        JoinSession game sessionAlias participantId requestedRole connectionId -> do
           state <- readMVar stateVar
           let stateSession = State.getSessionByAlias sessionAlias state
           maybeSession <- case stateSession of
             Just s -> pure $ Just s
             Nothing -> do
-              dbSession <- mongo $ selectFirst [Alias ==. sessionAlias] []
+              dbSession <- mongo $ selectFirst [Game ==. game, Alias ==. sessionAlias] []
               case dbSession of
                 Just entity -> do
                   let sessionId = entityKey entity
@@ -191,7 +192,7 @@ app config stateVar pool connection = do
           case maybeSession of
             Just (sessionId, session) -> do
               let role = Session.getParticipantRole participantId session
-                  participantData = ParticipantJoined sessionId participantId role
+                  participantData = SessionJoinSucccess sessionId participantId role connectionId
               if requestedRole == role
                 then do
                   updateState stateVar $ State.addParticipant sessionId participantId
@@ -202,7 +203,7 @@ app config stateVar pool connection = do
                                               Role.GameMaster -> GameMasterSessionState
                   sendMessage connection FrontService $ sessionStateMessage sessionId participantId session
                 else
-                  sendMessage connection FrontService $ KickParticipant sessionId participantId
+                  sendMessage connection FrontService $ SessionJoinFailure connectionId
             Nothing -> putStrLn $ "Couldn't resolve session alias: " ++ show sessionAlias
 
         LeaveSession sessionId participantId -> do

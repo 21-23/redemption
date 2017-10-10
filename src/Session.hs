@@ -27,7 +27,8 @@ import Database.Persist.MongoDB
 
 import Participant
 import RoundPhase
-import Puzzle
+import Puzzle (Puzzle, options)
+import PuzzleOptions (timeLimit)
 import Round (Round(Round, solutions))
 import qualified Round
 import Role (Role)
@@ -37,6 +38,7 @@ import Solution (Solution(..))
 import qualified Solution()
 import PlayerRoundData (PlayerRoundData(..))
 import SolutionCorrectness (SolutionCorrectness(Correct))
+import Game (Game)
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -46,6 +48,7 @@ type SessionAlias = Text
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
+    game           Game
     gameMasterId   ParticipantUid
     puzzles        (Seq Puzzle)
     participants   (Map ParticipantUid Participant)
@@ -133,7 +136,7 @@ getPlayerAggregateScore participantId session@Session{rounds} =
     then Nothing
     else Just $ foldl (\acc (Round puzzleIndex _ solutions) ->
                   let puzzle = lookupPuzzle puzzleIndex session
-                      defaultTime = fromMaybe 0 $ timeLimit <$> puzzle
+                      defaultTime = fromMaybe 0 $ timeLimit . options <$> puzzle
                    in acc + case Map.lookup participantId solutions of
                              Just (Solution _ time Correct) -> time
                              Just _                         -> defaultTime

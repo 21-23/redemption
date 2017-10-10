@@ -19,15 +19,19 @@ import Identity
 import Participant
 import Session
 import RoundPhase
-import Puzzle
+import Puzzle (Puzzle, PuzzleId, name, input, expected, hidden, options, toSimpleJSON)
+import PuzzleOptions (timeLimit, sandboxSettings)
 import Role
 import UUIDPersistField()
 import PlayerRoundData (PlayerRoundData)
 import SolutionCorrectness (SolutionCorrectness(..))
+import Game (Game)
+
+type ConnectionId = String
 
 data IncomingMessage
-  = CreateSession ParticipantUid SessionAlias [PuzzleId]
-  | JoinSession SessionAlias ParticipantUid Role
+  = CreateSession Game ParticipantUid SessionAlias [PuzzleId]
+  | JoinSession Game SessionAlias ParticipantUid Role ConnectionId
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId (Maybe Int)
   | StartRound SessionId
@@ -39,7 +43,8 @@ data IncomingMessage
 data OutgoingMessage
   = ArnauxCheckin Identity
   | SessionCreated SessionId
-  | ParticipantJoined SessionId ParticipantUid Role
+  | SessionJoinSucccess SessionId ParticipantUid Role ConnectionId
+  | SessionJoinFailure ConnectionId
   | ParticipantLeft SessionId ParticipantUid
   | KickParticipant SessionId ParticipantUid
   | PuzzleChanged SessionId (Maybe Int) (Maybe Puzzle)
@@ -59,7 +64,8 @@ data OutgoingMessage
 toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"
 toName SessionCreated {}          = "session.created"
-toName ParticipantJoined {}       = "participant.joined"
+toName SessionJoinSucccess {}     = "sessionJoin.result"
+toName SessionJoinFailure {}      = "sessionJoin.result"
 toName ParticipantLeft {}         = "participant.left"
 toName KickParticipant {}         = "participant.kick"
 toName PuzzleChanged {}           = "puzzle.changed"
@@ -81,10 +87,14 @@ instance ToJSON OutgoingMessage where
     where
       toValue (ArnauxCheckin identity) = ["identity" .= identity]
       toValue (SessionCreated sessionId) = ["sessionId" .= sessionId]
-      toValue (ParticipantJoined sessionId participantId role) =
+      toValue (SessionJoinSucccess sessionId participantId role connectionId) =
         [ "sessionId" .= sessionId
         , "participantId" .= participantId
         , "role" .= role
+        , "connectionId" .= connectionId
+        ]
+      toValue (SessionJoinFailure connectionId) =
+        [ "connectionId" .= connectionId
         ]
       toValue (ParticipantLeft sessionId participantId) =
         [ "sessionId" .= sessionId
@@ -98,7 +108,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "puzzleIndex" .= puzzleIndex
         , "puzzleName" .= (name <$> puzzle)
-        , "timeLimit" .= (timeLimit <$> puzzle)
+        , "timeLimit" .= (timeLimit . options <$> puzzle)
         ]
       toValue (RoundPhaseChanged sessionId phase) =
         [ "sessionId" .= sessionId
@@ -116,14 +126,14 @@ instance ToJSON OutgoingMessage where
         [ "input" .= input puzzle
         , "expected" .= expected puzzle
         , "hidden" .= hidden puzzle
-        , "settings" .= sandboxSettings puzzle
+        , "settings" .= sandboxSettings (options puzzle)
         ]
       toValue ResetSandbox = []
       toValue (RoundPuzzle sessionId puzzle) =
         [ "sessionId" .= sessionId
         , "input" .= input puzzle
         , "expected" .= expected puzzle
-        , "timeLimit" .= timeLimit puzzle
+        , "timeLimit" .= timeLimit (options puzzle)
         ]
       toValue (EvaluateSolution taskId solution) =
         [ "taskId" .= taskId
@@ -185,13 +195,16 @@ instance FromJSON IncomingMessage where
     name <- message .: "name"
     case name of
       String "session.create"          -> CreateSession
-        <$> message .: "gameMasterId"
+        <$> message .: "game"
+        <*> message .: "gameMasterId"
         <*> message .: "alias"
         <*> message .: "puzzles"
       String "session.join"            -> JoinSession
-        <$> message .: "sessionId"
+        <$> message .: "game"
+        <*> message .: "sessionId"
         <*> message .: "participantId"
         <*> message .: "role"
+        <*> message .: "requestId"
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"
       String "round.start"             -> StartRound     <$> message .: "sessionId"
