@@ -16,9 +16,9 @@ derivePersistField "Game"
 
 instance ToJSON Game where
   toJSON CSSQuickDraw    = String "cssqd"
-  toJSON LodashQuickdraw = String "lodashqd"
+  toJSON LodashQuickdraw = String "_qd"
 
 instance FromJSON Game where
-  parseJSON (String "cssqd")    = return CSSQuickDraw
-  parseJSON (String "lodashqd") = return LodashQuickdraw
+  parseJSON (String "cssqd") = return CSSQuickDraw
+  parseJSON (String "_qd")   = return LodashQuickdraw
   parseJSON _ = mzero
