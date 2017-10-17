@@ -21,7 +21,7 @@ import SandboxSettings (SandboxSettings)
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 PuzzleOptions json
-  timeLimit        NominalDiffTime
-  bannedCharacters String Maybe
-  sandboxSettings  SandboxSettings
+  timeLimit         NominalDiffTime
+  bannedCharacters [String] Maybe
+  sandboxSettings   SandboxSettings
 |]
