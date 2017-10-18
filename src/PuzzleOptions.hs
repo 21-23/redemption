@@ -16,12 +16,11 @@ import Database.Persist.MongoDB
 
 import Data.Time.Clock (NominalDiffTime)
 
-import SandboxSettings (SandboxSettings)
+import NominalDiffTimePersistField()
 
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 PuzzleOptions json
   timeLimit         NominalDiffTime
   bannedCharacters [String] Maybe
-  sandboxSettings   SandboxSettings
 |]

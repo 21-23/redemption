@@ -23,6 +23,7 @@ import Data.Monoid ((<>))
 
 import Game (Game(..))
 import PuzzleOptions (PuzzleOptions(..))
+import SandboxSettings (SandboxSettings)
 
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
@@ -33,6 +34,7 @@ Puzzle json
   expected        Text
   hidden         [Test]
   options         PuzzleOptions
+  sandboxSettings SandboxSettings
 |]
 
 toSimpleJSON :: Puzzle -> Value
