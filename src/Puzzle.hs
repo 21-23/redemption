@@ -19,9 +19,10 @@ import Data.Text
 import NominalDiffTimePersistField()
 import Test (Test)
 import Data.Aeson (Value, object, (.=))
+import Data.Monoid ((<>))
 
-import Game (Game)
-import PuzzleOptions (PuzzleOptions)
+import Game (Game(..))
+import PuzzleOptions (PuzzleOptions(..))
 
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
@@ -39,5 +40,9 @@ toSimpleJSON Puzzle { name, input, expected, options } = object
   [ "name" .= name
   , "input" .= input
   , "expected" .= expected
-  , "options" .= options
+  , "options" .= object (["timeLimit" .= timeLimit options] <> bannedCharacters)
   ]
+    where
+      bannedCharacters = case PuzzleOptions.bannedCharacters options of
+                           Just characterList -> [ "bannedCharacters" .= characterList ]
+                           Nothing            -> []
