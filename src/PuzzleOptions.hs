@@ -15,6 +15,8 @@ import Database.Persist.TH
 import Database.Persist.MongoDB
 
 import Data.Time.Clock (NominalDiffTime)
+import Data.Aeson (Value, object, (.=))
+import Data.Monoid ((<>))
 
 import NominalDiffTimePersistField()
 
@@ -24,3 +26,11 @@ PuzzleOptions json
   timeLimit         NominalDiffTime
   bannedCharacters [String] Maybe
 |]
+
+toSimpleJSON :: PuzzleOptions -> Value
+toSimpleJSON PuzzleOptions { timeLimit, bannedCharacters } =
+  object (["timeLimit" .= timeLimit] <> bannedJSONValue)
+    where
+      bannedJSONValue = case bannedCharacters of
+                       Just characterList -> [ "bannedCharacters" .= characterList ]
+                       Nothing            -> []

@@ -20,7 +20,7 @@ import Participant
 import Session
 import RoundPhase
 import Puzzle (Puzzle, PuzzleId, name, input, expected, hidden, options, sandboxSettings, toSimpleJSON)
-import PuzzleOptions (timeLimit)
+import PuzzleOptions (toSimpleJSON)
 import Role
 import UUIDPersistField()
 import PlayerRoundData (PlayerRoundData)
@@ -108,7 +108,7 @@ instance ToJSON OutgoingMessage where
         [ "sessionId" .= sessionId
         , "puzzleIndex" .= puzzleIndex
         , "puzzleName" .= (name <$> puzzle)
-        , "timeLimit" .= (timeLimit . options <$> puzzle)
+        , "puzzleOptions" .= (PuzzleOptions.toSimpleJSON . options <$> puzzle)
         ]
       toValue (RoundPhaseChanged sessionId phase) =
         [ "sessionId" .= sessionId
@@ -126,14 +126,15 @@ instance ToJSON OutgoingMessage where
         [ "input" .= input puzzle
         , "expected" .= expected puzzle
         , "hidden" .= hidden puzzle
-        , "settings" .= sandboxSettings puzzle
+        , "puzzleOptions" .= PuzzleOptions.toSimpleJSON (options puzzle)
+        , "sandboxSettings" .= sandboxSettings puzzle
         ]
       toValue ResetSandbox = []
       toValue (RoundPuzzle sessionId puzzle) =
         [ "sessionId" .= sessionId
         , "input" .= input puzzle
         , "expected" .= expected puzzle
-        , "timeLimit" .= timeLimit (options puzzle)
+        , "puzzleOptions" .= PuzzleOptions.toSimpleJSON (options puzzle)
         ]
       toValue (EvaluateSolution taskId solution) =
         [ "taskId" .= taskId
@@ -158,7 +159,7 @@ instance ToJSON OutgoingMessage where
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= length (puzzles session)
-        , "puzzle" .= (toSimpleJSON <$> getPuzzleForSessionState session)
+        , "puzzle" .= (Puzzle.toSimpleJSON <$> getPuzzleForSessionState session)
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
@@ -173,7 +174,7 @@ instance ToJSON OutgoingMessage where
         , "puzzle" .= do
             index <- puzzleIndex session
             puzzle <- lookupPuzzle index session
-            return $ toSimpleJSON puzzle
+            return $ Puzzle.toSimpleJSON puzzle
         , "roundPhase" .= roundPhase session
         , "roundCountdown" .= roundCountdown session
         , "startCountdown" .= startCountdown session
