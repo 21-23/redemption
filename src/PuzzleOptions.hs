@@ -32,5 +32,5 @@ toSimpleJSON PuzzleOptions { timeLimit, bannedCharacters } =
   object (["timeLimit" .= timeLimit] <> bannedJSONValue)
     where
       bannedJSONValue = case bannedCharacters of
-                       Just characterList -> [ "bannedCharacters" .= characterList ]
-                       Nothing            -> []
+                          Just characterList -> [ "bannedCharacters" .= characterList ]
+                          Nothing            -> []
