@@ -320,6 +320,6 @@ main = do
   case maybeConfig of
     Just config -> do
       stateVar <- newMVar State.empty
-      withMongoDBPool "_qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2 1 20000 $ \pool ->
+      withMongoDBPool "qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2 1 20000 $ \pool ->
         connectToMessenger config $ app config stateVar pool
     Nothing -> fail ("Configuration file '" ++ env ++ "' was not found")
