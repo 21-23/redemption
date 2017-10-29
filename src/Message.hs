@@ -202,10 +202,10 @@ instance FromJSON IncomingMessage where
         <*> message .: "puzzles"
       String "session.join"            -> JoinSession
         <$> message .: "game"
-        <*> message .: "sessionId"
+        <*> message .: "sessionAlias"
         <*> message .: "participantId"
         <*> message .: "role"
-        <*> message .: "requestId"
+        <*> message .: "connectionId"
       String "session.leave"           -> LeaveSession   <$> message .: "sessionId" <*> message .: "participantId"
       String "puzzleIndex.set"         -> SetPuzzleIndex <$> message .: "sessionId" <*> message .: "puzzleIndex"
       String "round.start"             -> StartRound     <$> message .: "sessionId"
