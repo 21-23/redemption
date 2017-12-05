@@ -5,7 +5,7 @@
 module Main where
 
 import           Control.Concurrent
-import           Control.Monad          (forever, unless)
+import           Control.Monad          (forever, unless, when)
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Network                (PortID(PortNumber))
@@ -33,7 +33,7 @@ import qualified State
 import Message
 import Identity
 import Envelope
-import Session (EntityField(..), Session, SessionId)
+import Session (EntityField(..), Session(Session, roundPhase), SessionId)
 import qualified Session
 import Puzzle (EntityField(PuzzleId), options)
 import PuzzleOptions (timeLimit)
@@ -270,14 +270,16 @@ app config stateVar pool connection = do
         ParticipantInput sessionId participantId input timestamp -> do
           state <- readMVar stateVar
           case State.getSession sessionId state of
-            Just _ ->
-              unless (State.hasCorrectSolution sessionId participantId state) $ do
+            Just Session {roundPhase} ->
+              when (roundPhase == InProgress) $
+                unless (State.hasCorrectSolution sessionId participantId state) $ do
                   -- this update is not synced with the database, participant input is considered perishable
                   updateState stateVar $ State.setParticipantInput sessionId participantId input
                   transaction <- State.createSandboxTransaction sessionId participantId input timestamp
                   -- this update is not synced with the database because of possible performance implications
                   updateState stateVar $ State.addSandboxTransaction transaction
                   sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
+
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         EvaluatedSolution taskId result correctness -> do
