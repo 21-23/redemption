@@ -17,14 +17,19 @@ import Session
 import Round (Round)
 import RoundPhase
 import Puzzle (Puzzle)
-import SandboxTransaction (SandboxTransaction(SandboxTransaction), taskId)
+import SandboxTransaction (SandboxTransaction(SandboxTransaction),
+                           SandboxTransactionRegistry,
+                           empty,
+                           update,
+                           get
+                           )
 import Solution (Solution(..))
 import Game (Game)
 
 data State = State
   { sessions :: Map SessionId Session
   , timers   :: Map SessionId SessionTimers
-  , sandboxTransactions :: Map UUID SandboxTransaction
+  , sandboxTransactions :: SandboxTransactionRegistry
   , aliases :: Map SessionAlias SessionId
   }
 
@@ -35,10 +40,10 @@ data SessionTimers = SessionTimers
 
 empty :: State
 empty = State
-  { sessions = Map.empty
-  , timers = Map.empty
-  , sandboxTransactions = Map.empty
-  , aliases = Map.empty
+  { sessions            = Map.empty
+  , timers              = Map.empty
+  , sandboxTransactions = SandboxTransaction.empty
+  , aliases             = Map.empty
   }
 
 createSession :: Game -> ParticipantUid -> SessionAlias -> [Puzzle] -> Session
@@ -67,19 +72,16 @@ createSandboxTransaction sessionId participantId input time = do
   taskId <- nextRandom
   return $ SandboxTransaction taskId sessionId participantId input time
 
-addSandboxTransaction :: SandboxTransaction -> State -> State
-addSandboxTransaction transaction@SandboxTransaction{taskId} state@State{sandboxTransactions} =
-  state { sandboxTransactions = Map.insert taskId transaction sandboxTransactions }
+updateSandboxTransaction :: SandboxTransaction -> State -> State
+updateSandboxTransaction transaction state@State{sandboxTransactions} =
+  state { sandboxTransactions = SandboxTransaction.update transaction sandboxTransactions }
 
 getSandboxTransaction :: UUID -> State -> Maybe SandboxTransaction
-getSandboxTransaction taskId State{sandboxTransactions} = Map.lookup taskId sandboxTransactions
-
-removeSandboxTransaction :: UUID -> State -> State
-removeSandboxTransaction taskId state@State{sandboxTransactions} =
-  state { sandboxTransactions = Map.delete taskId sandboxTransactions }
+getSandboxTransaction taskId State{sandboxTransactions} =
+  SandboxTransaction.get taskId sandboxTransactions
 
 clearSandboxTransactions :: State -> State
-clearSandboxTransactions state = state { sandboxTransactions = Map.empty }
+clearSandboxTransactions state = state { sandboxTransactions = SandboxTransaction.empty }
 
 getStartTimer :: SessionId -> State -> Maybe TimerIO
 getStartTimer sessionId State{timers} = startTimer <$> Map.lookup sessionId timers
