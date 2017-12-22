@@ -277,7 +277,7 @@ app config stateVar pool connection = do
                   updateState stateVar $ State.setParticipantInput sessionId participantId input
                   transaction <- State.createSandboxTransaction sessionId participantId input timestamp
                   -- this update is not synced with the database because of possible performance implications
-                  updateState stateVar $ State.addSandboxTransaction transaction
+                  updateState stateVar $ State.updateSandboxTransaction transaction
                   sendMessage connection SandboxService $ EvaluateSolution (taskId transaction) input
 
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
