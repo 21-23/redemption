@@ -39,6 +39,7 @@ data IncomingMessage
   | ParticipantInput SessionId ParticipantUid Text UTCTime
   | EvaluatedSolution UUID (Either Text ByteString) SolutionCorrectness
   | CreatePuzzle Puzzle
+  | SandboxReady SessionId
 
 data OutgoingMessage
   = ArnauxCheckin Identity
@@ -60,6 +61,8 @@ data OutgoingMessage
   | PuzzleCreated PuzzleId
   | PlayerSessionState SessionId ParticipantUid Session
   | GameMasterSessionState SessionId ParticipantUid Session
+  | RequestSandbox SessionId Game
+  | SessionSandboxReady SessionId
 
 toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"
@@ -81,6 +84,8 @@ toName Score {}                   = "score"
 toName PuzzleCreated {}           = "puzzle.created"
 toName PlayerSessionState {}      = "player.sessionState"
 toName GameMasterSessionState {}  = "gameMaster.sessionState"
+toName RequestSandbox {}          = "sandbox.request"
+toName SessionSandboxReady {}     = "sandbox.ready"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -180,6 +185,13 @@ instance ToJSON OutgoingMessage where
         , "startCountdown" .= startCountdown session
         , "players" .= getPlayerRoundData session
         ]
+      toValue (RequestSandbox sessionId game) =
+        [ "sessionId" .= sessionId
+        , "game"      .= game
+        ]
+      toValue (SessionSandboxReady sessionId) =
+        [ "sessionId" .= sessionId
+        ]
 
 getPuzzleForSessionState :: Session -> Maybe Puzzle
 getPuzzleForSessionState session =
@@ -228,6 +240,7 @@ instance FromJSON IncomingMessage where
         return $ EvaluatedSolution taskId result correctness
 
       String "puzzle.create"           -> CreatePuzzle   <$> message .: "puzzle"
+      String "sandbox.ready"           -> SandboxReady   <$> message .: "sessionId"
 
       _ -> fail "Unrecognized incoming message"
   parseJSON _ = mzero

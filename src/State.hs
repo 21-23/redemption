@@ -25,6 +25,7 @@ import SandboxTransaction (SandboxTransaction(SandboxTransaction),
                            )
 import Solution (Solution(..))
 import Game (Game)
+import SandboxStatus (SandboxStatus(..))
 
 data State = State
   { sessions :: Map SessionId Session
@@ -51,6 +52,7 @@ createSession game gameMasterId alias puzzleList = Session
   { game
   , gameMasterId
   , puzzles        = Seq.fromList puzzleList
+  , sandboxStatus  = Requested
   , participants   = Map.empty
   , rounds         = Seq.empty
   , playerInput    = Map.empty
@@ -184,3 +186,8 @@ hasCorrectSolution :: SessionId -> ParticipantUid -> State -> Bool
 hasCorrectSolution sessionId participantId state = fromMaybe False $ do
   session <- getSession sessionId state
   return $ Session.hasCorrectSolution participantId session
+
+setSandboxStatus :: SessionId -> SandboxStatus -> State -> State
+setSandboxStatus sessionId sandboxStatus state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify = Session.setSandboxStatus sandboxStatus

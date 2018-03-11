@@ -42,6 +42,8 @@ import RoundPhase
 import SandboxTransaction (SandboxTransaction(..))
 import Solution (Solution(Solution))
 import qualified Role
+import Game (Game)
+import SandboxStatus (SandboxStatus(..))
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -144,6 +146,11 @@ roundCountdownAction timer stateVar pool sessionId connection = do
         Nothing -> return ()
     Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
+requestSandbox :: WS.Connection -> MVar State -> SessionId -> Game -> IO ()
+requestSandbox connection stateVar sessionId game = do
+  updateState stateVar $ State.setSandboxStatus sessionId Requested
+  sendMessage connection ContainerService $ RequestSandbox sessionId game
+
 app :: Config -> MVar State -> ConnectionPool -> WS.ClientApp ()
 app config stateVar pool connection = do
   WS.sendTextData connection $ encode $ Envelope Messenger (ArnauxCheckin StateService)
@@ -186,6 +193,7 @@ app config stateVar pool connection = do
                       session = entityVal entity
                   sessionTimers <- State.createTimers
                   updateState stateVar $ State.addSession session sessionId sessionTimers
+                  requestSandbox connection stateVar sessionId game
                   return $ Just (sessionId, session)
                 Nothing -> return Nothing
 
@@ -239,24 +247,28 @@ app config stateVar pool connection = do
         StartRound sessionId -> do
           state <- readMVar stateVar
           case State.getSession sessionId state of
-            Just session -> do
-              updateState stateVar $ State.setRoundPhase sessionId Countdown
-              mongo $ update sessionId [RoundPhase =. Countdown]
-              let puzzleIndex = State.getPuzzleIndex sessionId state
-              let maybePuzzle = puzzleIndex >>= flip Session.lookupPuzzle session
-              case maybePuzzle of
-                Just puzzle -> do
-                  sendMessage connection SandboxService $ SetSandbox puzzle
-                  sendMessage connection FrontService $ RoundPhaseChanged sessionId Countdown
-                  let countdownValue = 2
-                  updateState stateVar $ State.setStartCountdown sessionId countdownValue
-                  mongo $ update sessionId [StartCountdown =. countdownValue]
-                  case State.getStartTimer sessionId state of
-                    Just timer -> do
-                      _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionId connection) (sDelay 1)
-                      sendMessage connection FrontService $ StartCountdownChanged sessionId $ countdownValue + 1
-                    Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
-                Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
+            Just session ->
+              if Session.sandboxStatus session == Ready
+                then do
+                  updateState stateVar $ State.setRoundPhase sessionId Countdown
+                  mongo $ update sessionId [RoundPhase =. Countdown]
+                  let puzzleIndex = State.getPuzzleIndex sessionId state
+                  let maybePuzzle = puzzleIndex >>= flip Session.lookupPuzzle session
+                  case maybePuzzle of
+                    Just puzzle -> do
+                      sendMessage connection SandboxService $ SetSandbox puzzle
+                      sendMessage connection FrontService $ RoundPhaseChanged sessionId Countdown
+                      let countdownValue = 2
+                      updateState stateVar $ State.setStartCountdown sessionId countdownValue
+                      mongo $ update sessionId [StartCountdown =. countdownValue]
+                      case State.getStartTimer sessionId state of
+                        Just timer -> do
+                          _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionId connection) (sDelay 1)
+                          sendMessage connection FrontService $ StartCountdownChanged sessionId $ countdownValue + 1
+                        Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
+                    Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
+                else
+                  putStrLn $ "Session can't be started when sandbox is not ready: " ++ show sessionId
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         StopRound sessionId -> do
@@ -299,6 +311,13 @@ app config stateVar pool connection = do
                                                           correctness
             Nothing -> putStrLn $ "Transaction not found: " ++ show taskId
 
+        SandboxReady sessionId -> do
+          state <- readMVar stateVar
+          case State.getSession sessionId state of
+            Just _ -> do
+              updateState stateVar $ State.setSandboxStatus sessionId Ready
+              sendMessage connection FrontService $ SessionSandboxReady sessionId
+            Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
       Left err -> putStrLn err
 
