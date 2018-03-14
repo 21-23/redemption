@@ -11,6 +11,7 @@ import           Data.UUID (UUID)
 import           Data.UUID.V4 (nextRandom)
 import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime, NominalDiffTime)
+import           Data.List (find)
 
 import Participant
 import Session
@@ -26,12 +27,14 @@ import SandboxTransaction (SandboxTransaction(SandboxTransaction),
 import Solution (Solution(..))
 import Game (Game)
 import SandboxStatus (SandboxStatus(..))
+import ServiceIdentity (ServiceIdentity, ServiceType(..))
 
 data State = State
   { sessions :: Map SessionId Session
   , timers   :: Map SessionId SessionTimers
   , sandboxTransactions :: SandboxTransactionRegistry
-  , aliases :: Map SessionAlias SessionId
+  , aliases  :: Map SessionAlias SessionId
+  , identity :: Maybe ServiceIdentity
   }
 
 data SessionTimers = SessionTimers
@@ -45,6 +48,7 @@ empty = State
   , timers              = Map.empty
   , sandboxTransactions = SandboxTransaction.empty
   , aliases             = Map.empty
+  , identity            = Nothing
   }
 
 createSession :: Game -> ParticipantUid -> SessionAlias -> [Puzzle] -> Session
@@ -187,7 +191,17 @@ hasCorrectSolution sessionId participantId state = fromMaybe False $ do
   session <- getSession sessionId state
   return $ Session.hasCorrectSolution participantId session
 
+getSandboxStatus :: SessionId -> State -> Maybe SandboxStatus
+getSandboxStatus sessionId State{sessions} = do
+  session <- Map.lookup sessionId sessions
+  return $ Session.sandboxStatus session
+
 setSandboxStatus :: SessionId -> SandboxStatus -> State -> State
 setSandboxStatus sessionId sandboxStatus state@State{sessions} =
   state { sessions = Map.adjust modify sessionId sessions }
     where modify = Session.setSandboxStatus sandboxStatus
+
+getSessionForSandbox :: State -> ServiceType -> Maybe SessionId
+getSessionForSandbox State{sessions} (SandboxService sandboxGame) =
+  fst <$> find (\(_, Session{game}) -> game == sandboxGame) (Map.toList sessions)
+getSessionForSandbox _ _ = Nothing

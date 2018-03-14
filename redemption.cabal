@@ -20,7 +20,6 @@ library
                      , Session
                      , Participant
                      , Envelope
-                     , Identity
                      , Puzzle
                      , Round
                      , RoundPhase
@@ -38,6 +37,7 @@ library
                      , Game
                      , PuzzleOptions
                      , SandboxStatus
+                     , ServiceIdentity
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5.10.2
                      , text

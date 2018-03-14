@@ -7,18 +7,19 @@ import Database.Persist.TH
 
 import Data.Aeson
 import Control.Monad (mzero)
+import ServiceIdentity (ServiceIdentity)
 
 data SandboxStatus
   = Requested
-  | Ready
+  | Ready ServiceIdentity
   deriving (Show, Read, Eq)
 derivePersistField "SandboxStatus"
 
 instance ToJSON SandboxStatus where
-  toJSON Requested = String "requested"
-  toJSON Ready     = String "ready"
+  toJSON Requested        = String "requested"
+  toJSON (Ready identity) = object [ "identity" .= identity ]
 
 instance FromJSON SandboxStatus where
   parseJSON (String "requested") = return Requested
-  parseJSON (String "ready")     = return Ready
+  parseJSON (Object obj)         = Ready <$> obj .: "identity"
   parseJSON _ = mzero
