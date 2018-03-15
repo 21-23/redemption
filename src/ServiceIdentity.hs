@@ -48,7 +48,7 @@ data ServiceIdentity = ServiceIdentity ServiceType UUID
 
 instance ToJSON ServiceIdentity where
   toJSON (ServiceIdentity serviceType uuid) = object
-    [ "serviceType" .= serviceType
+    [ "type" .= serviceType
     , "id"   .= uuid
     ]
 
