@@ -185,8 +185,6 @@ app config stateVar pool connection = do
           let session = State.createSession game gameMasterId sessionAlias (entityVal <$> puzzles)
           sessionId <- mongo $ insert session
           mongo $ repsert sessionId session
-          sessionTimers <- State.createTimers
-          updateState stateVar $ State.addSession session sessionId sessionTimers
           sendMessage connection (AnyOfType InitService) $ SessionCreated sessionId
 
         JoinSession game sessionAlias participantId requestedRole connectionId -> do
