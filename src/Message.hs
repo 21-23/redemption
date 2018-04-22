@@ -15,7 +15,6 @@ import Data.Maybe (fromMaybe)
 import Data.UUID (UUID)
 import Data.ByteString.Lazy (ByteString)
 
-import Identity
 import Participant
 import Session
 import RoundPhase
@@ -26,11 +25,13 @@ import UUIDPersistField()
 import PlayerRoundData (PlayerRoundData)
 import SolutionCorrectness (SolutionCorrectness(..))
 import Game (Game)
+import ServiceIdentity (ServiceIdentity, ServiceType)
 
 type ConnectionId = String
 
 data IncomingMessage
-  = CreateSession Game ParticipantUid SessionAlias [PuzzleId]
+  = CheckedIn ServiceIdentity
+  | CreateSession Game ParticipantUid SessionAlias [PuzzleId]
   | JoinSession Game SessionAlias ParticipantUid Role ConnectionId
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId (Maybe Int)
@@ -39,9 +40,10 @@ data IncomingMessage
   | ParticipantInput SessionId ParticipantUid Text UTCTime
   | EvaluatedSolution UUID (Either Text ByteString) SolutionCorrectness
   | CreatePuzzle Puzzle
+  | ServiceRequestFulfilled ServiceIdentity
 
 data OutgoingMessage
-  = ArnauxCheckin Identity
+  = ArnauxCheckin ServiceType
   | SessionCreated SessionId
   | SessionJoinSucccess SessionId ParticipantUid Role ConnectionId
   | SessionJoinFailure ConnectionId
@@ -60,6 +62,8 @@ data OutgoingMessage
   | PuzzleCreated PuzzleId
   | PlayerSessionState SessionId ParticipantUid Session
   | GameMasterSessionState SessionId ParticipantUid Session
+  | ServiceRequest ServiceIdentity ServiceType
+  | SessionSandboxReady SessionId
 
 toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"
@@ -81,6 +85,8 @@ toName Score {}                   = "score"
 toName PuzzleCreated {}           = "puzzle.created"
 toName PlayerSessionState {}      = "player.sessionState"
 toName GameMasterSessionState {}  = "gameMaster.sessionState"
+toName ServiceRequest {}          = "service.request"
+toName SessionSandboxReady {}     = "sandbox.ready"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -180,6 +186,13 @@ instance ToJSON OutgoingMessage where
         , "startCountdown" .= startCountdown session
         , "players" .= getPlayerRoundData session
         ]
+      toValue (ServiceRequest identity serviceType) =
+        [ "from" .= identity
+        , "type" .= serviceType
+        ]
+      toValue (SessionSandboxReady sessionId) =
+        [ "sessionId" .= sessionId
+        ]
 
 getPuzzleForSessionState :: Session -> Maybe Puzzle
 getPuzzleForSessionState session =
@@ -195,6 +208,7 @@ instance FromJSON IncomingMessage where
   parseJSON (Object message) = do
     name <- message .: "name"
     case name of
+      String "checkedIn"               -> CheckedIn <$> message .: "identity"
       String "session.create"          -> CreateSession
         <$> message .: "game"
         <*> message .: "gameMasterId"
@@ -227,7 +241,8 @@ instance FromJSON IncomingMessage where
             correctness = fromMaybe Incorrect correct
         return $ EvaluatedSolution taskId result correctness
 
-      String "puzzle.create"           -> CreatePuzzle   <$> message .: "puzzle"
+      String "puzzle.create"            -> CreatePuzzle            <$> message .: "puzzle"
+      String "service.requestFulfilled" -> ServiceRequestFulfilled <$> message .: "identity"
 
       _ -> fail "Unrecognized incoming message"
   parseJSON _ = mzero

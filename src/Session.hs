@@ -39,6 +39,7 @@ import qualified Solution()
 import PlayerRoundData (PlayerRoundData(..))
 import SolutionCorrectness (SolutionCorrectness(Correct))
 import Game (Game)
+import SandboxStatus (SandboxStatus)
 
 startCountdownTime :: Integer
 startCountdownTime = 3
@@ -51,6 +52,7 @@ Session json
     game           Game
     gameMasterId   ParticipantUid
     puzzles        (Seq Puzzle)
+    sandboxStatus  SandboxStatus
     participants   (Map ParticipantUid Participant)
     rounds         (Seq Round)
     playerInput    (Map ParticipantUid Text)
@@ -152,3 +154,6 @@ getPlayerRoundData session@Session{participants, playerInput, gameMasterId} =
                         , solution = (solutions <$> getCurrentRound session) >>= Map.lookup playerId
                         , aggregateScore = getPlayerAggregateScore playerId session
                         }
+
+setSandboxStatus :: SandboxStatus -> Session -> Session
+setSandboxStatus status session = session { sandboxStatus = status }
