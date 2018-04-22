@@ -87,7 +87,7 @@ toName PuzzleCreated {}           = "puzzle.created"
 toName PlayerSessionState {}      = "player.sessionState"
 toName GameMasterSessionState {}  = "gameMaster.sessionState"
 toName ServiceRequest {}          = "service.request"
-toName SessionSandboxReady {}     = "sandbox.ready"
+toName SessionSandboxReady {}     = "sandbox.status"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -194,6 +194,7 @@ instance ToJSON OutgoingMessage where
         ]
       toValue (SessionSandboxReady sessionId) =
         [ "sessionId" .= sessionId
+        , "status"    .= String "ready"
         ]
 
 getPuzzleForSessionState :: Session -> Maybe Puzzle
