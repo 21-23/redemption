@@ -23,3 +23,7 @@ instance FromJSON SandboxStatus where
   parseJSON (String "requested") = return Requested
   parseJSON (Object obj)         = Ready <$> obj .: "identity"
   parseJSON _ = mzero
+
+toSimpleJSON :: SandboxStatus -> Value
+toSimpleJSON Requested = String "requested"
+toSimpleJSON (Ready _) = String "ready"

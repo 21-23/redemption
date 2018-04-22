@@ -26,6 +26,7 @@ import PlayerRoundData (PlayerRoundData)
 import SolutionCorrectness (SolutionCorrectness(..))
 import Game (Game)
 import ServiceIdentity (ServiceIdentity, ServiceType)
+import SandboxStatus (toSimpleJSON)
 
 type ConnectionId = String
 
@@ -174,7 +175,7 @@ instance ToJSON OutgoingMessage where
         ]
       toValue (GameMasterSessionState sessionId participantId session) =
         [ "sessionId" .= sessionId
-        , "sandboxStatus" .= sandboxStatus session
+        , "sandboxStatus" .= SandboxStatus.toSimpleJSON (sandboxStatus session)
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= length (puzzles session)
