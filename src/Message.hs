@@ -174,6 +174,7 @@ instance ToJSON OutgoingMessage where
         ]
       toValue (GameMasterSessionState sessionId participantId session) =
         [ "sessionId" .= sessionId
+        , "sandboxStatus" .= sandboxStatus session
         , "participantId" .= participantId
         , "puzzleIndex" .= puzzleIndex session
         , "puzzleCount" .= length (puzzles session)
