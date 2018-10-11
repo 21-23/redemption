@@ -27,6 +27,7 @@ import SolutionCorrectness (SolutionCorrectness(..))
 import Game (Game)
 import ServiceIdentity (ServiceIdentity, ServiceType)
 import SandboxStatus (toSimpleJSON)
+import Round (Round(solutions))
 
 type ConnectionId = String
 
@@ -65,6 +66,7 @@ data OutgoingMessage
   | GameMasterSessionState SessionId ParticipantUid Session
   | ServiceRequest ServiceIdentity ServiceType
   | SessionSandboxReady SessionId
+  | SolutionSync SessionId Session
 
 toName :: OutgoingMessage -> Text
 toName ArnauxCheckin {}           = "checkin"
@@ -88,6 +90,7 @@ toName PlayerSessionState {}      = "player.sessionState"
 toName GameMasterSessionState {}  = "gameMaster.sessionState"
 toName ServiceRequest {}          = "service.request"
 toName SessionSandboxReady {}     = "sandbox.status"
+toName SolutionSync {}            = "solution.sync"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message
@@ -195,6 +198,10 @@ instance ToJSON OutgoingMessage where
       toValue (SessionSandboxReady sessionId) =
         [ "sessionId" .= sessionId
         , "status"    .= String "ready"
+        ]
+      toValue (SolutionSync sessionId session) =
+        [ "sessionId" .= sessionId
+        , "solutions" .= (solutions <$> getCurrentRound session)
         ]
 
 getPuzzleForSessionState :: Session -> Maybe Puzzle

@@ -137,6 +137,9 @@ roundCountdownAction timer stateVar pool sessionId connection = do
       case countdownValue of
         Just 0 -> do
           stopRound stateVar pool connection sessionId
+          case State.getSolutionSyncTimer sessionId state of
+            Just solutionSyncTimer -> stopTimer solutionSyncTimer
+            Nothing -> putStrLn $ "SolutionSyncTimer not found: " ++ show sessionId
           stopTimer timer -- has to be the last statement because it kills the thread
 
         Just value -> do
@@ -147,6 +150,13 @@ roundCountdownAction timer stateVar pool sessionId connection = do
 
         Nothing -> return ()
     Nothing -> putStrLn $ "Session not found: " ++ show sessionId
+
+solutionSyncAction :: MVar State -> SessionId -> WS.Connection -> IO ()
+solutionSyncAction stateVar sessionId connection = do
+  state <- readMVar stateVar
+  case State.getSession sessionId state of
+    Just session -> sendMessage connection (AnyOfType FrontService) $ SolutionSync sessionId session
+    Nothing      -> putStrLn $ "Session not found: " ++ show sessionId
 
 requestSandbox :: WS.Connection -> MVar State -> SessionId -> Game -> IO ()
 requestSandbox connection stateVar sessionId game = do
@@ -268,9 +278,13 @@ app config stateVar pool connection = do
                       let countdownValue = 2
                       updateState stateVar $ State.setStartCountdown sessionId countdownValue
                       mongo $ update sessionId [StartCountdown =. countdownValue]
-                      case State.getStartTimer sessionId state of
-                        Just timer -> do
-                          _ <- repeatedStart timer (startCountdownAction timer stateVar pool sessionId connection) (sDelay 1)
+                      let timers = (,)
+                                    <$> State.getStartTimer sessionId state
+                                    <*> State.getSolutionSyncTimer sessionId state
+                      case timers of
+                        Just (startTimer, solutionSyncTimer) -> do
+                          _ <- repeatedStart startTimer (startCountdownAction startTimer stateVar pool sessionId connection) (msDelay 100)
+                          _ <- repeatedStart solutionSyncTimer (solutionSyncAction stateVar sessionId connection) (sDelay 1)
                           sendMessage connection (AnyOfType FrontService) $ StartCountdownChanged sessionId $ countdownValue + 1
                         Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                     Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex

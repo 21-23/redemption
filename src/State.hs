@@ -6,7 +6,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import           Data.Maybe (fromMaybe)
-import           Control.Concurrent.Timer
+import           Control.Concurrent.Timer (TimerIO, newTimer, stopTimer)
 import           Data.UUID (UUID)
 import           Data.UUID.V4 (nextRandom)
 import           Data.Text (Text)
@@ -38,8 +38,9 @@ data State = State
   }
 
 data SessionTimers = SessionTimers
-  { startTimer :: TimerIO
-  , roundTimer :: TimerIO
+  { startTimer        :: TimerIO
+  , roundTimer        :: TimerIO
+  , solutionSyncTimer :: TimerIO
   }
 
 empty :: State
@@ -71,7 +72,8 @@ createTimers :: IO SessionTimers
 createTimers = do
   startTmr <- newTimer
   roundTmr <- newTimer
-  return $ SessionTimers startTmr roundTmr
+  solutionSyncTimer <- newTimer
+  return $ SessionTimers startTmr roundTmr solutionSyncTimer
 
 createSandboxTransaction :: SessionId -> ParticipantUid -> Text -> UTCTime -> IO SandboxTransaction
 createSandboxTransaction sessionId participantId input time = do
@@ -95,9 +97,13 @@ getStartTimer sessionId State{timers} = startTimer <$> Map.lookup sessionId time
 getRoundTimer :: SessionId -> State -> Maybe TimerIO
 getRoundTimer sessionId State{timers} = roundTimer <$> Map.lookup sessionId timers
 
+getSolutionSyncTimer :: SessionId -> State -> Maybe TimerIO
+getSolutionSyncTimer sessionId State{timers} = solutionSyncTimer <$> Map.lookup sessionId timers
+
 stopTimers :: SessionId -> State -> IO ()
 stopTimers sessionId state = do
   fromMaybe (return ()) $ stopTimer <$> getStartTimer sessionId state
+  fromMaybe (return ()) $ stopTimer <$> getSolutionSyncTimer sessionId state
   fromMaybe (return ()) $ stopTimer <$> getRoundTimer sessionId state
 
 addSession :: Session -> SessionId -> SessionTimers -> State -> State
