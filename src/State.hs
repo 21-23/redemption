@@ -66,6 +66,7 @@ createSession game gameMasterId alias puzzleList = Session
   , startCountdown = 0
   , roundCountdown = 0
   , alias
+  , syncSolutions  = Map.empty
   }
 
 createTimers :: IO SessionTimers
@@ -211,3 +212,13 @@ getSessionForSandbox :: State -> ServiceType -> Maybe SessionId
 getSessionForSandbox State{sessions} (SandboxService sandboxGame) =
   fst <$> find (\(_, Session{game}) -> game == sandboxGame) (Map.toList sessions)
 getSessionForSandbox _ _ = Nothing
+
+syncSolutionsEmpty :: SessionId -> State -> Bool
+syncSolutionsEmpty sessionId State{sessions} = fromMaybe False $ do
+  session <- Map.lookup sessionId sessions
+  return $ Map.null $ syncSolutions session
+
+resetSyncSolutions :: SessionId -> State -> State
+resetSyncSolutions sessionId state@State{sessions} =
+  state { sessions = Map.adjust modify sessionId sessions }
+    where modify session = session { syncSolutions = Map.empty }

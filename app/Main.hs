@@ -66,7 +66,7 @@ stopRound stateVar pool connection sessionId = do
   state <- readMVar stateVar
   case State.getSession sessionId state of
     Just session -> do
-      updateState stateVar (State.clearSandboxTransactions . State.setRoundPhase sessionId End)
+      updateState stateVar (State.resetSyncSolutions sessionId . State.clearSandboxTransactions . State.setRoundPhase sessionId End)
       mongo $ update sessionId [RoundPhase =. End, Rounds =. Session.rounds session]
       case State.getSandboxStatus sessionId state of
         Just (Ready sandboxIdentity) -> do
@@ -155,7 +155,10 @@ solutionSyncAction :: MVar State -> SessionId -> WS.Connection -> IO ()
 solutionSyncAction stateVar sessionId connection = do
   state <- readMVar stateVar
   case State.getSession sessionId state of
-    Just session -> sendMessage connection (AnyOfType FrontService) $ SolutionSync sessionId session
+    Just session ->
+      unless (State.syncSolutionsEmpty sessionId state) $ do
+        sendMessage connection (AnyOfType FrontService) $ SolutionSync sessionId session
+        updateState stateVar $ State.resetSyncSolutions sessionId
     Nothing      -> putStrLn $ "Session not found: " ++ show sessionId
 
 requestSandbox :: WS.Connection -> MVar State -> SessionId -> Game -> IO ()

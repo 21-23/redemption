@@ -61,6 +61,7 @@ Session json
     startCountdown Int
     roundCountdown Int
     alias          SessionAlias
+    syncSolutions  (Map ParticipantUid Solution)
 |]
 
 addParticipant :: Participant -> Session -> Session
@@ -115,11 +116,14 @@ getSolutionTime time session =
     Nothing -> 0
 
 addSolution :: ParticipantUid -> Solution -> Session -> Session
-addSolution participantId solution session@Session{rounds} =
+addSolution participantId solution session@Session{rounds, syncSolutions} =
   case getCurrentRound session of
     Nothing -> session
     Just currentRound@Round{solutions} ->
-      session { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds }
+      session
+        { rounds = Seq.update (Seq.length rounds - 1) updatedRound rounds
+        , syncSolutions = Map.insert participantId solution syncSolutions
+        }
         where updatedRound = currentRound { solutions = Map.insert participantId solution solutions }
 
 getSolution :: ParticipantUid -> Session -> Maybe Solution

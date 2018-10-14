@@ -27,7 +27,6 @@ import SolutionCorrectness (SolutionCorrectness(..))
 import Game (Game)
 import ServiceIdentity (ServiceIdentity, ServiceType)
 import SandboxStatus (toSimpleJSON)
-import Round (Round(solutions))
 
 type ConnectionId = String
 
@@ -201,7 +200,7 @@ instance ToJSON OutgoingMessage where
         ]
       toValue (SolutionSync sessionId session) =
         [ "sessionId" .= sessionId
-        , "solutions" .= (solutions <$> getCurrentRound session)
+        , "solutions" .= syncSolutions session
         ]
 
 getPuzzleForSessionState :: Session -> Maybe Puzzle
