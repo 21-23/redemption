@@ -286,8 +286,8 @@ app config stateVar pool connection = do
                                     <*> State.getSolutionSyncTimer sessionId state
                       case timers of
                         Just (startTimer, solutionSyncTimer) -> do
-                          _ <- repeatedStart startTimer (startCountdownAction startTimer stateVar pool sessionId connection) (msDelay 100)
-                          _ <- repeatedStart solutionSyncTimer (solutionSyncAction stateVar sessionId connection) (sDelay 1)
+                          _ <- repeatedStart startTimer (startCountdownAction startTimer stateVar pool sessionId connection) (sDelay 1)
+                          _ <- repeatedStart solutionSyncTimer (solutionSyncAction stateVar sessionId connection) (msDelay 200)
                           sendMessage connection (AnyOfType FrontService) $ StartCountdownChanged sessionId $ countdownValue + 1
                         Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                     Nothing -> putStrLn $ "Puzzle not found: index " ++ show puzzleIndex
