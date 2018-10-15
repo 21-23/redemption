@@ -6,6 +6,7 @@ module Message where
 
 import Control.Monad
 import Data.Text (Text)
+import qualified Data.Text as Text
 import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import Data.Aeson
 import Data.Semigroup
@@ -27,6 +28,7 @@ import SolutionCorrectness (SolutionCorrectness(..))
 import Game (Game)
 import ServiceIdentity (ServiceIdentity, ServiceType)
 import SandboxStatus (toSimpleJSON)
+import Solution(Solution(..))
 
 type ConnectionId = String
 
@@ -200,8 +202,15 @@ instance ToJSON OutgoingMessage where
         ]
       toValue (SolutionSync sessionId session) =
         [ "sessionId" .= sessionId
-        , "solutions" .= syncSolutions session
+        , "solutions" .= (transform <$> syncSolutions session)
         ]
+        where
+          transform Solution {code, time, correct} =
+            object
+              [ "length"  .= Text.length code
+              , "time"    .= time
+              , "correct" .= correct
+              ]
 
 getPuzzleForSessionState :: Session -> Maybe Puzzle
 getPuzzleForSessionState session =
