@@ -52,21 +52,22 @@ empty = State
   , identity            = Nothing
   }
 
-createSession :: Game -> ParticipantUid -> SessionAlias -> [Puzzle] -> Session
-createSession game gameMasterId alias puzzleList = Session
+createSession :: Game -> ParticipantUid -> SessionAlias -> [Puzzle] -> Int -> Session
+createSession game gameMasterId alias puzzleList participantLimit = Session
   { game
   , gameMasterId
-  , puzzles        = Seq.fromList puzzleList
-  , sandboxStatus  = Requested
-  , participants   = Map.empty
-  , rounds         = Seq.empty
-  , playerInput    = Map.empty
-  , puzzleIndex    = Nothing
-  , roundPhase     = Idle
-  , startCountdown = 0
-  , roundCountdown = 0
+  , puzzles          = Seq.fromList puzzleList
+  , participantLimit
+  , sandboxStatus    = Requested
+  , participants     = Map.empty
+  , rounds           = Seq.empty
+  , playerInput      = Map.empty
+  , puzzleIndex      = Nothing
+  , roundPhase       = Idle
+  , startCountdown   = 0
+  , roundCountdown   = 0
   , alias
-  , syncSolutions  = Map.empty
+  , syncSolutions    = Map.empty
   }
 
 createTimers :: IO SessionTimers
