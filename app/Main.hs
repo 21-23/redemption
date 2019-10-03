@@ -8,6 +8,7 @@ import           Control.Concurrent
 import           Control.Monad          (forever, unless, when)
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Network                (PortID(PortNumber))
 import           Network.Socket         (withSocketsDo)
 import qualified Network.WebSockets     as WS
@@ -193,9 +194,9 @@ app config stateVar pool connection = do
           puzzleId <- mongo $ insert puzzle
           sendMessage connection (AnyOfType InitService) $ PuzzleCreated puzzleId
 
-        CreateSession game gameMasterId sessionAlias puzzleIds -> do
+        CreateSession game gameMasterId sessionAlias puzzleIds participantLimit -> do
           puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
-          let session = State.createSession game gameMasterId sessionAlias (entityVal <$> puzzles)
+          let session = State.createSession game gameMasterId sessionAlias (entityVal <$> puzzles) participantLimit
           sessionId <- mongo $ insert session
           mongo $ repsert sessionId session
           sendMessage connection (AnyOfType InitService) $ SessionCreated sessionId
@@ -223,15 +224,19 @@ app config stateVar pool connection = do
                   participantData = SessionJoinSucccess sessionId participantId role connectionId
               if requestedRole == role
                 then do
-                  updateState stateVar $ State.addParticipant sessionId participantId
-                  mongo $ update sessionId [Participants =. Session.participants session]
-                  sendMessage connection (AnyOfType FrontService) participantData
-                  let sessionStateMessage = case role of
-                                              Role.Player -> PlayerSessionState
-                                              Role.GameMaster -> GameMasterSessionState
-                  sendMessage connection (AnyOfType FrontService) $ sessionStateMessage sessionId participantId session
+                  if not (Session.isFull session) || role == Role.GameMaster
+                    then do
+                      updateState stateVar $ State.addParticipant sessionId participantId
+                      mongo $ update sessionId [Participants =. Session.participants session]
+                      sendMessage connection (AnyOfType FrontService) participantData
+                      let sessionStateMessage = case role of
+                                                  Role.Player -> PlayerSessionState
+                                                  Role.GameMaster -> GameMasterSessionState
+                      sendMessage connection (AnyOfType FrontService) $ sessionStateMessage sessionId participantId session
+                    else
+                      sendMessage connection (AnyOfType FrontService) $ SessionJoinFailure connectionId "session participant limit exceeded"
                 else
-                  sendMessage connection (AnyOfType FrontService) $ SessionJoinFailure connectionId
+                  sendMessage connection (AnyOfType FrontService) $ SessionJoinFailure connectionId "role mismatch"
             Nothing -> putStrLn $ "Couldn't resolve session alias: " ++ show sessionAlias
 
         LeaveSession sessionId participantId -> do
@@ -358,17 +363,17 @@ connectToMessenger config@Config{messengerHost, messengerPort} clientApp =
       suspend $ msDelay 500
       connectToMessenger config clientApp)
 
-runMongoDBAction :: (MonadIO m, MonadBaseControl IO m) => ConnectionPool -> Action m a -> m a
+runMongoDBAction :: (MonadIO m, MonadBaseControl IO m, MonadUnliftIO m) => ConnectionPool -> Action m a -> m a
 runMongoDBAction = flip $ runMongoDBPool master
 
 main :: IO ()
 main = do
   maybeEnv <- lookupEnv "redemption_environment"
   let env = fromMaybe "dev" maybeEnv
-  maybeConfig <- Yaml.decodeFile ("conf/" ++ env ++ ".yaml")
+  maybeConfig <- Yaml.decodeFileEither ("conf/" ++ env ++ ".yaml")
   case maybeConfig of
-    Just config -> do
+    Right config -> do
       stateVar <- newMVar State.empty
       withMongoDBPool "qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2 1 20000 $ \pool ->
         connectToMessenger config $ app config stateVar pool
-    Nothing -> fail ("Configuration file '" ++ env ++ "' was not found")
+    Left _ -> fail ("Configuration file '" ++ env ++ "' was not found")

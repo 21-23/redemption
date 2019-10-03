@@ -34,7 +34,7 @@ type ConnectionId = String
 
 data IncomingMessage
   = CheckedIn ServiceIdentity
-  | CreateSession Game ParticipantUid SessionAlias [PuzzleId]
+  | CreateSession Game ParticipantUid SessionAlias [PuzzleId] Int
   | JoinSession Game SessionAlias ParticipantUid Role ConnectionId
   | LeaveSession SessionId ParticipantUid
   | SetPuzzleIndex SessionId (Maybe Int)
@@ -49,7 +49,7 @@ data OutgoingMessage
   = ArnauxCheckin ServiceType
   | SessionCreated SessionId
   | SessionJoinSucccess SessionId ParticipantUid Role ConnectionId
-  | SessionJoinFailure ConnectionId
+  | SessionJoinFailure ConnectionId Text
   | ParticipantLeft SessionId ParticipantUid
   | KickParticipant SessionId ParticipantUid
   | PuzzleChanged SessionId (Maybe Int) (Maybe Puzzle)
@@ -104,8 +104,9 @@ instance ToJSON OutgoingMessage where
         , "role" .= role
         , "connectionId" .= connectionId
         ]
-      toValue (SessionJoinFailure connectionId) =
+      toValue (SessionJoinFailure connectionId reason) =
         [ "connectionId" .= connectionId
+        , "reason" .= reason
         ]
       toValue (ParticipantLeft sessionId participantId) =
         [ "sessionId" .= sessionId
@@ -232,6 +233,7 @@ instance FromJSON IncomingMessage where
         <*> message .: "gameMasterId"
         <*> message .: "alias"
         <*> message .: "puzzles"
+        <*> message .: "participantLimit"
       String "session.join"            -> JoinSession
         <$> message .: "game"
         <*> message .: "sessionAlias"

@@ -49,9 +49,12 @@ type SessionAlias = Text
 let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
-    game           Game
-    gameMasterId   ParticipantUid
-    puzzles        (Seq Puzzle)
+    game             Game
+    gameMasterId     ParticipantUid
+    puzzles          (Seq Puzzle)
+    alias            SessionAlias
+    participantLimit Int
+
     sandboxStatus  SandboxStatus
     participants   (Map ParticipantUid Participant)
     rounds         (Seq Round)
@@ -60,7 +63,6 @@ Session json
     roundPhase     RoundPhase
     startCountdown Int
     roundCountdown Int
-    alias          SessionAlias
     syncSolutions  (Map ParticipantUid Solution)
 |]
 
@@ -161,3 +163,13 @@ getPlayerRoundData session@Session{participants, playerInput, gameMasterId} =
 
 setSandboxStatus :: SandboxStatus -> Session -> Session
 setSandboxStatus status session = session { sandboxStatus = status }
+
+isFull :: Session -> Bool
+isFull Session{gameMasterId, participantLimit, participants} =
+  let gmAdjustment =
+        if Map.member gameMasterId participants
+          then 1
+          else 0
+   in Map.size participants >= participantLimit + gmAdjustment
+
+
