@@ -33,7 +33,7 @@ data State = State
   { sessions :: Map SessionId Session
   , timers   :: Map SessionId SessionTimers
   , sandboxTransactions :: SandboxTransactionRegistry
-  , aliases  :: Map SessionAlias SessionId
+  , aliases  :: Map (Game, SessionAlias) SessionId
   , identity :: Maybe ServiceIdentity
   }
 
@@ -109,21 +109,21 @@ stopTimers sessionId state = do
   fromMaybe (return ()) $ stopTimer <$> getRoundTimer sessionId state
 
 addSession :: Session -> SessionId -> SessionTimers -> State -> State
-addSession session@Session{alias} sessionId sessionTimers state@State{sessions, timers, aliases} =
+addSession session@Session{alias, game} sessionId sessionTimers state@State{sessions, timers, aliases} =
   state { sessions = Map.insert sessionId session sessions
         , timers   = Map.insert sessionId sessionTimers timers
-        , aliases  = Map.insert alias sessionId aliases
+        , aliases  = Map.insert (game, alias) sessionId aliases
         }
 
 getSession :: SessionId -> State -> Maybe Session
 getSession sessionId State{sessions} = Map.lookup sessionId sessions
 
-resolveSessionAlias :: SessionAlias -> State -> Maybe SessionId
-resolveSessionAlias alias State{aliases} = Map.lookup alias aliases
+resolveSessionAlias :: Game -> SessionAlias -> State -> Maybe SessionId
+resolveSessionAlias game alias State{aliases} = Map.lookup (game, alias) aliases
 
-getSessionByAlias :: SessionAlias -> State -> Maybe (SessionId, Session)
-getSessionByAlias alias state = do
-  sessionId <- resolveSessionAlias alias state
+getSessionByAlias :: Game -> SessionAlias -> State -> Maybe (SessionId, Session)
+getSessionByAlias game alias state = do
+  sessionId <- resolveSessionAlias game alias state
   session <- getSession sessionId state
   return (sessionId, session)
 

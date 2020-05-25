@@ -203,7 +203,7 @@ app config stateVar pool connection = do
 
         JoinSession game sessionAlias participantId requestedRole connectionId -> do
           state <- readMVar stateVar
-          let stateSession = State.getSessionByAlias sessionAlias state
+          let stateSession = State.getSessionByAlias game sessionAlias state
           maybeSession <- case stateSession of
             Just s -> pure $ Just s
             Nothing -> do
