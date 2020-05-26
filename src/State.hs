@@ -211,7 +211,7 @@ setSandboxStatus sessionId sandboxStatus state@State{sessions} =
 
 getSessionForSandbox :: State -> ServiceType -> Maybe SessionId
 getSessionForSandbox State{sessions} (SandboxService sandboxGame) =
-  fst <$> find (\(_, Session{game}) -> game == sandboxGame) (Map.toList sessions)
+  fst <$> find (\(_, Session{game, sandboxStatus}) -> game == sandboxGame && sandboxStatus == Requested) (Map.toList sessions)
 getSessionForSandbox _ _ = Nothing
 
 syncSolutionsEmpty :: SessionId -> State -> Bool
