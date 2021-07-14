@@ -1,0 +1,172 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           redemption
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/redemption#readme>
+homepage:       https://github.com/21-23/redemption#readme
+bug-reports:    https://github.com/21-23/redemption/issues
+author:         21/23
+maintainer:     DaQuirm
+copyright:      2021 21/23
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/21-23/redemption
+
+library
+  exposed-modules:
+      Config
+      Envelope
+      Game
+      Message
+      NominalDiffTimePersistField
+      Participant
+      PlayerRoundData
+      Puzzle
+      PuzzleOptions
+      Role
+      Round
+      RoundPhase
+      SandboxSettings
+      SandboxStatus
+      SandboxTransaction
+      SequencePersistField
+      ServiceIdentity
+      Session
+      Solution
+      SolutionCorrectness
+      State
+      Test
+      UUIDPersistField
+  other-modules:
+      Paths_redemption
+  hs-source-dirs:
+      src
+  default-extensions:
+      LambdaCase
+      InstanceSigs
+      OverloadedStrings
+      OverloadedLabels
+      NamedFieldPuns
+      DeriveGeneric
+      DerivingStrategies
+      MultiParamTypeClasses
+      StandaloneDeriving
+      UndecidableInstances
+      DataKinds
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , convertible
+    , monad-control
+    , mongoDB
+    , network
+    , persistent
+    , persistent-mongoDB
+    , suspend
+    , template-haskell
+    , text
+    , time
+    , timers
+    , unliftio-core
+    , uuid
+    , websockets
+    , yaml
+  default-language: Haskell2010
+
+executable redemption-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_redemption
+  hs-source-dirs:
+      app
+  default-extensions:
+      LambdaCase
+      InstanceSigs
+      OverloadedStrings
+      OverloadedLabels
+      NamedFieldPuns
+      DeriveGeneric
+      DerivingStrategies
+      MultiParamTypeClasses
+      StandaloneDeriving
+      UndecidableInstances
+      DataKinds
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , convertible
+    , monad-control
+    , mongoDB
+    , network
+    , persistent
+    , persistent-mongoDB
+    , redemption
+    , suspend
+    , template-haskell
+    , text
+    , time
+    , timers
+    , unliftio-core
+    , uuid
+    , websockets
+    , yaml
+  default-language: Haskell2010
+
+test-suite redemption-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_redemption
+  hs-source-dirs:
+      test
+  default-extensions:
+      LambdaCase
+      InstanceSigs
+      OverloadedStrings
+      OverloadedLabels
+      NamedFieldPuns
+      DeriveGeneric
+      DerivingStrategies
+      MultiParamTypeClasses
+      StandaloneDeriving
+      UndecidableInstances
+      DataKinds
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , convertible
+    , monad-control
+    , mongoDB
+    , network
+    , persistent
+    , persistent-mongoDB
+    , redemption
+    , suspend
+    , template-haskell
+    , text
+    , time
+    , timers
+    , unliftio-core
+    , uuid
+    , websockets
+    , yaml
+  default-language: Haskell2010
