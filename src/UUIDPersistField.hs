@@ -1,12 +1,15 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module UUIDPersistField where
+module UUIDPersistField () where
 
 import Database.Persist.Sql
+    ( PersistValue(PersistText),
+      PersistFieldSql(..),
+      SqlType(SqlString),
+      PersistField(..) )
 
 import Data.Text (pack)
-import Data.UUID
+import Data.UUID ( UUID, fromText, toText )
 
 instance PersistFieldSql UUID where
   sqlType _ = SqlString

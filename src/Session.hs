@@ -8,7 +8,29 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Session where
+module Session
+  ( Session(..)
+  , SessionId
+  , SessionAlias
+  , lookupPuzzle
+  , getSolution
+  , hasCorrectSolution
+  , getPlayerRoundData
+  , addParticipant
+  , addRound
+  , addSolution
+  , getSolutionTime
+  , getStartCountdown
+  , removeParticipant
+  , setParticipantInput
+  , setPuzzleIndex
+  , setRoundCountdown
+  , setRoundPhase
+  , setSandboxStatus
+  , setStartCountdown
+  , getParticipantRole
+  , isFull
+  ) where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -18,15 +40,20 @@ import Data.Sequence (Seq, (|>), ViewR(..))
 import qualified Data.Sequence as Seq
 import Data.Time.Clock (UTCTime, NominalDiffTime, diffUTCTime)
 import Data.Maybe (fromMaybe)
-import Data.List (sortBy)
-import Data.Ord (comparing)
+import Data.List (sortOn)
 
 import Language.Haskell.TH.Syntax (Type(..))
 import Database.Persist.TH
+    ( mkPersist,
+      mkPersistSettings,
+      persistLowerCase,
+      share,
+      MkPersistSettings(mpsPrefixFields) )
 import Database.Persist.MongoDB
+    ( BackendKey(MongoKey), MongoContext )
 
-import Participant
-import RoundPhase
+import Participant ( Participant(..), ParticipantUid )
+import RoundPhase ( RoundPhase )
 import Puzzle (Puzzle, options)
 import PuzzleOptions (timeLimit)
 import Round (Round(Round, solutions))
@@ -41,12 +68,9 @@ import SolutionCorrectness (SolutionCorrectness(Correct))
 import Game (Game)
 import SandboxStatus (SandboxStatus)
 
-startCountdownTime :: Integer
-startCountdownTime = 3
-
 type SessionAlias = Text
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Session json
     game             Game
@@ -144,7 +168,7 @@ getPlayerAggregateScore participantId session@Session{rounds} =
     then Nothing
     else Just $ foldl (\acc (Round puzzleIndex _ solutions) ->
                   let puzzle = lookupPuzzle puzzleIndex session
-                      defaultTime = fromMaybe 0 $ timeLimit . options <$> puzzle
+                      defaultTime = maybe 0 (timeLimit . options) puzzle
                    in acc + case Map.lookup participantId solutions of
                              Just (Solution _ time Correct) -> time
                              Just _                         -> defaultTime
@@ -153,11 +177,11 @@ getPlayerAggregateScore participantId session@Session{rounds} =
 
 getPlayerRoundData :: Session -> [PlayerRoundData]
 getPlayerRoundData session@Session{participants, playerInput, gameMasterId} =
-  sortBy (comparing aggregateScore) $ map f $ filter ((/= gameMasterId) . fst) $ Map.toList participants
+  sortOn aggregateScore $ map f $ filter ((/= gameMasterId) . fst) $ Map.toList participants
     where f (playerId, _) = PlayerRoundData
                         { participantId = playerId
                         , inputLength = Text.length $ fromMaybe "" $ Map.lookup playerId playerInput
-                        , solution = (solutions <$> getCurrentRound session) >>= Map.lookup playerId
+                        , solution = getCurrentRound session >>= Map.lookup playerId . solutions
                         , aggregateScore = getPlayerAggregateScore playerId session
                         }
 
@@ -171,5 +195,3 @@ isFull Session{gameMasterId, participantLimit, participants} =
           then 1
           else 0
    in Map.size participants >= participantLimit + gmAdjustment
-
-

@@ -1,13 +1,15 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module NominalDiffTimePersistField where
+module NominalDiffTimePersistField () where
 
-import Database.Persist.Sql
-import Data.Time.Clock (NominalDiffTime)
-import Data.Text (pack)
-import Data.Convertible.Base
-import Data.Convertible.Instances.Time()
+import           Data.Convertible.Base           (convert)
+import           Data.Convertible.Instances.Time ()
+import           Data.Text                       (pack)
+import           Data.Time.Clock                 (NominalDiffTime)
+import           Database.Persist.Sql            (PersistField (..),
+                                                  PersistFieldSql (..),
+                                                  PersistValue (PersistInt64),
+                                                  SqlType (SqlReal))
 
 instance PersistFieldSql NominalDiffTime where
   sqlType _ = SqlReal

@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GADTs #-}
@@ -8,10 +6,19 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module SandboxTransaction where
+module SandboxTransaction
+  ( SandboxTransaction(..)
+  , SandboxTransactionRegistry(..)
+  , empty, update, get, delete
+  ) where
 
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax ( Type(ConT) )
 import Database.Persist.TH
+    ( mkPersist,
+      mkPersistSettings,
+      persistLowerCase,
+      share,
+      MkPersistSettings(mpsPrefixFields) )
 import Database.Persist.MongoDB (MongoContext)
 
 import Data.UUID (UUID)
@@ -24,7 +31,7 @@ import UUIDPersistField()
 import Session (SessionId)
 import Participant (ParticipantUid)
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 SandboxTransaction json
   taskId        UUID

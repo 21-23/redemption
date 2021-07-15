@@ -1,10 +1,10 @@
-{-# LANGUAGE OverloadedStrings #-}
+module Config
+  ( Config(..)
+  ) where
 
-module Config where
+import Control.Monad ( MonadPlus(mzero) )
 
-import Control.Monad
-
-import Data.Yaml
+import Data.Yaml ( (.:), FromJSON(parseJSON), Value(Object) )
 
 data Config = Config
   { mongoDBHost   :: String

@@ -1,9 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module SequencePersistField where
+module SequencePersistField () where
 
 import Database.Persist.Sql
+    ( PersistValue(PersistList),
+      PersistFieldSql(..),
+      SqlType(SqlString),
+      PersistField(..) )
 
 import Data.Text (pack)
 import Data.Foldable (toList)

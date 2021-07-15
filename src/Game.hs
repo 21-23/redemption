@@ -1,18 +1,17 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game where
+module Game (Game(..), stringify, parseGame) where
 
 import Control.Monad (MonadPlus, mzero)
 import Data.Text (Text)
 import Data.Aeson (ToJSON(toJSON), FromJSON(parseJSON), Value(String))
-import Database.Persist.TH
+import Database.Persist.TH ( derivePersistField )
 
 data Game
   = CSSQuickDraw
   | LodashQuickDraw
   | JSQuickDraw
-  deriving (Eq, Read, Show, Ord)
+  deriving stock (Eq, Read, Show, Ord)
 
 derivePersistField "Game"
 

@@ -8,19 +8,27 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module PlayerRoundData where
+module PlayerRoundData
+  ( PlayerRoundData (..)
+  ) where
 
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax ( Type(ConT) )
 import Database.Persist.TH
+    ( mkPersist,
+      mkPersistSettings,
+      persistLowerCase,
+      share,
+      MkPersistSettings(mpsPrefixFields) )
 import Database.Persist.MongoDB
+    ( BackendKey(MongoKey), MongoContext )
 
-import Data.Time.Clock
+import Data.Time.Clock ( NominalDiffTime )
 
 import Participant (ParticipantUid)
 import Solution (Solution)
 import NominalDiffTimePersistField()
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 PlayerRoundData json
   participantId ParticipantUid

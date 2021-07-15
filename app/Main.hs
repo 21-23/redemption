@@ -1,49 +1,50 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE FlexibleContexts #-}
+-- TODO de-mongo
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fno-warn-unused-local-binds #-}
+{-# OPTIONS_GHC -fno-warn-unused-matches #-}
 
-module Main where
+module Main (main) where
 
-import           Control.Concurrent
+import Control.Concurrent
+    ( MVar, newMVar, putMVar, readMVar, takeMVar )
 import           Control.Monad          (forever, unless, when)
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Network.Socket         (withSocketsDo)
 import qualified Network.WebSockets     as WS
-import           Database.Persist
-import           Database.Persist.MongoDB
-import           Database.MongoDB.Connection (PortID(PortNumber))
-import           Data.Aeson
-import           Control.Concurrent.Timer
-import           Control.Concurrent.Suspend.Lifted
+import Data.Aeson ( eitherDecode, encode )
+import Control.Concurrent.Timer
+    ( repeatedStart, stopTimer, TimerIO )
+import Control.Concurrent.Suspend.Lifted
+    ( msDelay, sDelay, suspend )
 import           Data.Time.Clock        (getCurrentTime)
 import qualified Data.Map.Strict        as Map
 import qualified Data.Yaml              as Yaml
-import           System.Environment
-import           Data.Maybe
-import           Control.Exception
-import           Data.Convertible.Base
+import System.Environment ( lookupEnv )
+import Data.Maybe ( fromMaybe )
+import Control.Exception ( IOException, catch )
+import Data.Convertible.Base ( convert )
 import           Data.Convertible.Instances.Time()
 import qualified Data.Text              as Text
 
-import Config
+import Config ( Config(Config, messengerHost, messengerPort) )
 import State (State)
 import qualified State
 import Message
-import Envelope
-import Session (EntityField(..), Session(Session, roundPhase, sandboxStatus), SessionId)
+    ( IncomingMessage(..),
+      OutgoingMessage(..) )
+import Envelope ( Envelope(Envelope, message) )
+import Session (Session(..), SessionId, isFull, getParticipantRole)
 import qualified Session
-import Puzzle (EntityField(PuzzleId), options)
+import Puzzle (options)
 import PuzzleOptions (timeLimit)
 import Round (Round(..))
-import RoundPhase
+import RoundPhase (RoundPhase(..))
 import SandboxTransaction (SandboxTransaction(..))
 import Solution (Solution(Solution))
 import qualified Role
 import Game (Game)
 import SandboxStatus (SandboxStatus(..))
 import ServiceIdentity (ServiceIdentity(..), ServiceSelector(..), ServiceType(..))
+import Data.Foldable (forM_)
 
 updateState :: MVar State -> (State -> State) -> IO ()
 updateState stateVar action = do
@@ -53,22 +54,20 @@ updateState stateVar action = do
 withSession :: MVar State -> SessionId -> (Session -> IO ()) -> IO ()
 withSession stateVar sessionId action = do
   state <- readMVar stateVar
-  case State.getSession sessionId state of
-    Just session -> action session
-    Nothing -> return ()
+  forM_ (State.getSession sessionId state) action
 
 sendMessage :: WS.Connection -> ServiceSelector -> OutgoingMessage -> IO ()
 sendMessage connection to message =
   WS.sendTextData connection $ encode $ Envelope to message
 
-stopRound :: MVar State -> ConnectionPool -> WS.Connection -> SessionId -> IO ()
-stopRound stateVar pool connection sessionId = do
-  let mongo = runMongoDBAction pool
+stopRound :: MVar State -> WS.Connection -> SessionId -> IO ()
+stopRound stateVar connection sessionId = do
   state <- readMVar stateVar
   case State.getSession sessionId state of
     Just session -> do
       updateState stateVar (State.resetSyncSolutions sessionId . State.clearSandboxTransactions . State.setRoundPhase sessionId End)
-      mongo $ update sessionId [RoundPhase =. End, Rounds =. Session.rounds session]
+      -- TODO: de-mongo
+      -- mongo $ update sessionId [RoundPhase =. End, Rounds =. Session.rounds session]
       case State.getSandboxStatus sessionId state of
         Just (Ready sandboxIdentity) -> do
           sendMessage connection (Service sandboxIdentity) ResetSandbox
@@ -77,9 +76,8 @@ stopRound stateVar pool connection sessionId = do
         _ -> putStrLn $ "Sandbox state error: " ++ show sessionId
     Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
-startCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
-startCountdownAction timer stateVar pool sessionId connection = do
-  let mongo = runMongoDBAction pool
+startCountdownAction :: TimerIO -> MVar State -> SessionId -> WS.Connection -> IO ()
+startCountdownAction timer stateVar sessionId connection = do
   state <- readMVar stateVar
   case State.getSession sessionId state of
     Nothing -> putStrLn $ "Session not found: " ++ show sessionId
@@ -92,11 +90,13 @@ startCountdownAction timer stateVar pool sessionId connection = do
               -- create a new round
               currentTime <- getCurrentTime
               updateState stateVar $ State.addRound sessionId $ Round puzzleIndex currentTime Map.empty
-              withSession stateVar sessionId $ \session ->
-                mongo $ update sessionId [Rounds =. Session.rounds session]
+              -- TODO: de-mongo
+              -- withSession stateVar sessionId $ \session ->
+              --   mongo $ update sessionId [Rounds =. Session.rounds session]
               -- change phase to 'in progress'
               updateState stateVar $ State.setRoundPhase sessionId InProgress
-              mongo $ update sessionId [RoundPhase =. InProgress]
+              -- TODO: de-mongo
+              -- mongo $ update sessionId [RoundPhase =. InProgress]
               sendMessage connection (AnyOfType FrontService) $ RoundPhaseChanged sessionId InProgress
 
               let maybePuzzle = State.getSession sessionId state >>= Session.lookupPuzzle puzzleIndex
@@ -107,10 +107,11 @@ startCountdownAction timer stateVar pool sessionId connection = do
                   -- start round countdown
                   let roundCountdownValue = convert $ timeLimit $ options puzzle
                   updateState stateVar $ State.setRoundCountdown sessionId roundCountdownValue
-                  mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
+                  -- TODO: de-mongo
+                  -- mongo $ update sessionId [RoundCountdown =. roundCountdownValue]
                   case State.getRoundTimer sessionId state of
                     Just roundTimer -> do
-                      _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar pool sessionId connection) (sDelay 1)
+                      _ <- repeatedStart roundTimer (roundCountdownAction roundTimer stateVar sessionId connection) (sDelay 1)
                       return ()
                     Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
                   stopTimer timer -- has to be the last statement because it kills the thread
@@ -124,20 +125,20 @@ startCountdownAction timer stateVar pool sessionId connection = do
         Just value -> do
           let nextValue = value - 1
           updateState stateVar $ State.setStartCountdown sessionId nextValue
-          mongo $ update sessionId [StartCountdown =. nextValue]
+          -- TODO: de-mongo
+          -- mongo $ update sessionId [StartCountdown =. nextValue]
           sendMessage connection (AnyOfType FrontService) $ StartCountdownChanged sessionId value
         Nothing -> return ()
 
-roundCountdownAction :: TimerIO -> MVar State -> ConnectionPool -> SessionId -> WS.Connection -> IO ()
-roundCountdownAction timer stateVar pool sessionId connection = do
-  let mongo = runMongoDBAction pool
+roundCountdownAction :: TimerIO -> MVar State -> SessionId -> WS.Connection -> IO ()
+roundCountdownAction timer stateVar sessionId connection = do
   state <- readMVar stateVar
   case State.getSession sessionId state of
     Just _ -> do
       let countdownValue = State.getRoundCountdown sessionId state
       case countdownValue of
         Just 0 -> do
-          stopRound stateVar pool connection sessionId
+          stopRound stateVar connection sessionId
           case State.getSolutionSyncTimer sessionId state of
             Just solutionSyncTimer -> stopTimer solutionSyncTimer
             Nothing -> putStrLn $ "SolutionSyncTimer not found: " ++ show sessionId
@@ -146,7 +147,8 @@ roundCountdownAction timer stateVar pool sessionId connection = do
         Just value -> do
           let nextValue = value - 1
           updateState stateVar $ State.setRoundCountdown sessionId nextValue
-          mongo $ update sessionId [RoundCountdown =. nextValue]
+          -- TODO: de-mongo
+          -- mongo $ update sessionId [RoundCountdown =. nextValue]
           sendMessage connection (AnyOfType FrontService) $ RoundCountdownChanged sessionId nextValue
 
         Nothing -> return ()
@@ -171,17 +173,16 @@ requestSandbox connection stateVar sessionId game = do
       sendMessage connection (AnyOfType ContainerService) $ ServiceRequest identity (ServiceIdentity.SandboxService game)
     Nothing -> return ()
 
-app :: Config -> MVar State -> ConnectionPool -> WS.ClientApp ()
-app config stateVar pool connection = do
+app :: Config -> MVar State -> WS.ClientApp ()
+app config stateVar connection = do
   WS.sendTextData connection $ encode $ Envelope Messenger (ArnauxCheckin StateService)
-  let mongo = runMongoDBAction pool
   forever $ do
     string <- catch
       (WS.receiveData connection)
       (\exception -> do
         print (exception :: WS.ConnectionException)
         suspend $ msDelay 500
-        connectToMessenger config $ app config stateVar pool
+        connectToMessenger config $ app config stateVar
         return "")
 
     case eitherDecode string :: Either String (Envelope IncomingMessage) of
@@ -191,14 +192,21 @@ app config stateVar pool connection = do
           updateState stateVar $ \state -> state { State.identity = Just identity }
 
         CreatePuzzle puzzle -> do
-          puzzleId <- mongo $ insert puzzle
+          -- TODO: de-mongo
+          -- puzzleId <- mongo $ insert puzzle
+          let puzzleId = undefined
           sendMessage connection (AnyOfType InitService) $ PuzzleCreated puzzleId
 
         CreateSession game gameMasterId sessionAlias puzzleIds participantLimit -> do
-          puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
-          let session = State.createSession game gameMasterId sessionAlias (entityVal <$> puzzles) participantLimit
-          sessionId <- mongo $ insert session
-          mongo $ repsert sessionId session
+          -- TODO de-mongo
+          -- puzzles <- mongo $ selectList [PuzzleId <-. puzzleIds] []
+          let puzzles = undefined
+          let session = State.createSession game gameMasterId sessionAlias puzzles participantLimit
+          -- TODO: de-mongo
+          let sessionId = undefined
+          -- sessionId <- mongo $ insert session
+          -- TODO: de-mongo
+          -- mongo $ repsert sessionId session
           sendMessage connection (AnyOfType InitService) $ SessionCreated sessionId
 
         JoinSession game sessionAlias participantId requestedRole connectionId -> do
@@ -207,11 +215,17 @@ app config stateVar pool connection = do
           maybeSession <- case stateSession of
             Just s -> pure $ Just s
             Nothing -> do
-              dbSession <- mongo $ selectFirst [Game ==. game, Alias ==. sessionAlias] []
+              -- TODO: de-mongo
+              -- dbSession <- mongo $ selectFirst [Game ==. game, Alias ==. sessionAlias] []
+              let dbSession = undefined
               case dbSession of
                 Just entity -> do
-                  let sessionId = entityKey entity
-                      session = entityVal entity
+                  -- TODO: de-mongo
+                  -- let sessionId = entityKey entity
+                  let sessionId = undefined
+                      -- TODO: de-mongo
+                      -- session = entityVal entity
+                      session = undefined
                   sessionTimers <- State.createTimers
                   updateState stateVar $ State.addSession session sessionId sessionTimers
                   requestSandbox connection stateVar sessionId game
@@ -220,14 +234,15 @@ app config stateVar pool connection = do
 
           case maybeSession of
             Just (sessionId, session) -> do
-              let role = Session.getParticipantRole participantId session
+              let role = getParticipantRole participantId session
                   participantData = SessionJoinSucccess sessionId participantId role connectionId
               if requestedRole == role
                 then do
-                  if not (Session.isFull session) || role == Role.GameMaster
+                  if not (isFull session) || role == Role.GameMaster
                     then do
                       updateState stateVar $ State.addParticipant sessionId participantId
-                      mongo $ update sessionId [Participants =. Session.participants session]
+                      -- TODO: de-mongo
+                      -- mongo $ update sessionId [Participants =. Session.participants session]
                       sendMessage connection (AnyOfType FrontService) participantData
                       let sessionStateMessage = case role of
                                                   Role.Player -> PlayerSessionState
@@ -244,8 +259,9 @@ app config stateVar pool connection = do
           case State.getSession sessionId state of
             Just _ -> do
               updateState stateVar $ State.removeParticipant sessionId participantId
-              withSession stateVar sessionId $ \session ->
-                mongo $ update sessionId [Participants =. Session.participants session]
+              -- TODO: de-mongo
+              -- withSession stateVar sessionId $ \session ->
+              --   mongo $ update sessionId [Participants =. Session.participants session]
               sendMessage connection (AnyOfType FrontService) $ ParticipantLeft sessionId participantId
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
@@ -256,7 +272,8 @@ app config stateVar pool connection = do
               updateState stateVar $
                 State.setPuzzleIndex sessionId puzzleIndex
                 . State.setRoundPhase sessionId Idle
-              mongo $ update sessionId [PuzzleIndex =. puzzleIndex, RoundPhase =. Idle]
+              -- TODO: de-mongo
+              -- mongo $ update sessionId [PuzzleIndex =. puzzleIndex, RoundPhase =. Idle]
               case puzzleIndex of
                 Just index ->
                   case Session.lookupPuzzle index session of
@@ -276,7 +293,8 @@ app config stateVar pool connection = do
               case Session.sandboxStatus session of
                 Ready sandboxIdentity -> do
                   updateState stateVar $ State.setRoundPhase sessionId Countdown
-                  mongo $ update sessionId [RoundPhase =. Countdown]
+                  -- TODO: de-mongo
+                  -- mongo $ update sessionId [RoundPhase =. Countdown]
                   let puzzleIndex = State.getPuzzleIndex sessionId state
                   let maybePuzzle = puzzleIndex >>= flip Session.lookupPuzzle session
                   case maybePuzzle of
@@ -285,13 +303,14 @@ app config stateVar pool connection = do
                       sendMessage connection (AnyOfType FrontService) $ RoundPhaseChanged sessionId Countdown
                       let countdownValue = 2
                       updateState stateVar $ State.setStartCountdown sessionId countdownValue
-                      mongo $ update sessionId [StartCountdown =. countdownValue]
+                      -- TODO: de-mongo
+                      -- mongo $ update sessionId [StartCountdown =. countdownValue]
                       let timers = (,)
                                     <$> State.getStartTimer sessionId state
                                     <*> State.getSolutionSyncTimer sessionId state
                       case timers of
                         Just (startTimer, solutionSyncTimer) -> do
-                          _ <- repeatedStart startTimer (startCountdownAction startTimer stateVar pool sessionId connection) (sDelay 1)
+                          _ <- repeatedStart startTimer (startCountdownAction startTimer stateVar sessionId connection) (sDelay 1)
                           _ <- repeatedStart solutionSyncTimer (solutionSyncAction stateVar sessionId connection) (msDelay 200)
                           sendMessage connection (AnyOfType FrontService) $ StartCountdownChanged sessionId $ countdownValue + 1
                         Nothing -> putStrLn $ "Timer error for session " ++ show sessionId
@@ -305,7 +324,7 @@ app config stateVar pool connection = do
           case State.getSession sessionId state of
             Just _ -> do
               State.stopTimers sessionId state
-              stopRound stateVar pool connection sessionId
+              stopRound stateVar connection sessionId
             Nothing -> putStrLn $ "Session not found: " ++ show sessionId
 
         ParticipantInput sessionId participantId input timestamp -> do
@@ -363,17 +382,18 @@ connectToMessenger config@Config{messengerHost, messengerPort} clientApp =
       suspend $ msDelay 500
       connectToMessenger config clientApp)
 
-runMongoDBAction :: (MonadIO m, MonadBaseControl IO m, MonadUnliftIO m) => ConnectionPool -> Action m a -> m a
-runMongoDBAction = flip $ runMongoDBPool master
-
 main :: IO ()
 main = do
   maybeEnv <- lookupEnv "redemption_environment"
   let env = fromMaybe "dev" maybeEnv
-  maybeConfig <- Yaml.decodeFileEither ("conf/" ++ env ++ ".yaml")
+  -- TODO: de-mongo
+  -- maybeConfig <- Yaml.decodeFileEither ("conf/" ++ env ++ ".yaml")
+  maybeConfig <- Yaml.decodeFileEither ("conf/" ++ env ++ ".yaml") :: IO (Either Yaml.ParseException Config)
   case maybeConfig of
     Right config -> do
       stateVar <- newMVar State.empty
-      withMongoDBPool "qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2 1 20000 $ \pool ->
-        connectToMessenger config $ app config stateVar pool
+      mempty
+      -- TODO de-mongo
+      -- withMongoDBPool "qd" (Config.mongoDBHost config) (PortNumber 27017) Nothing 2 1 20000 $ \pool ->
+      --   connectToMessenger config $ app config stateVar pool
     Left _ -> fail ("Configuration file '" ++ env ++ "' was not found")

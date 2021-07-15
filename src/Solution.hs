@@ -8,19 +8,27 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Solution where
+module Solution
+  ( Solution(..)
+  ) where
 
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax ( Type(ConT) )
 import Database.Persist.TH
+    ( mkPersist,
+      mkPersistSettings,
+      persistLowerCase,
+      share,
+      MkPersistSettings(mpsPrefixFields) )
 import Database.Persist.MongoDB
+    ( BackendKey(MongoKey), MongoContext )
 
-import Data.Text
-import Data.Time.Clock
+import Data.Text ( Text )
+import Data.Time.Clock ( NominalDiffTime )
 
 import NominalDiffTimePersistField()
 import SolutionCorrectness (SolutionCorrectness())
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Solution json
     code Text

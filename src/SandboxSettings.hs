@@ -8,17 +8,25 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module SandboxSettings where
+module SandboxSettings
+  ( SandboxSettings(..)
+  ) where
 
-import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Syntax ( Type(ConT) )
 import Database.Persist.TH
+    ( mkPersist,
+      mkPersistSettings,
+      persistLowerCase,
+      share,
+      MkPersistSettings(mpsPrefixFields) )
 import Database.Persist.MongoDB
+    ( BackendKey(MongoKey), MongoContext )
 
 import NominalDiffTimePersistField()
 
 import Data.Time.Clock (NominalDiffTime)
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 SandboxSettings json
   timeout       NominalDiffTime Maybe

@@ -1,20 +1,21 @@
-{-# LANGUAGE OverloadedStrings #-}
+module Role
+  ( Role(..)
+  ) where
 
-module Role where
+import           Control.Monad (MonadPlus (mzero))
 
-import Control.Monad
-
-import Data.Aeson
+import           Data.Aeson    (FromJSON (parseJSON), ToJSON (toJSON),
+                                Value (String))
 
 data Role
   = GameMaster
-  | Player deriving (Eq)
+  | Player deriving stock Eq
 
 instance ToJSON Role where
   toJSON GameMaster = String "game-master"
   toJSON Player     = String "player"
 
 instance FromJSON Role where
-  parseJSON (String "game-master") = return GameMaster
-  parseJSON (String "player")      = return Player
-  parseJSON _ = mzero
+  parseJSON (String "game-master") = pure GameMaster
+  parseJSON (String "player")      = pure Player
+  parseJSON _                      = mzero

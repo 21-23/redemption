@@ -1,18 +1,26 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
 
-module SandboxStatus where
+module SandboxStatus
+  ( SandboxStatus(..)
+  , toSimpleJSON
+  ) where
 
-import Database.Persist.TH
+import Database.Persist.TH ( derivePersistField )
 
 import Data.Aeson
+    ( (.:),
+      object,
+      FromJSON(parseJSON),
+      Value(Object, String),
+      KeyValue((.=)),
+      ToJSON(toJSON) )
 import Control.Monad (mzero)
 import ServiceIdentity (ServiceIdentity)
 
 data SandboxStatus
   = Requested
   | Ready ServiceIdentity
-  deriving (Show, Read, Eq)
+  deriving stock (Show, Read, Eq)
 derivePersistField "SandboxStatus"
 
 instance ToJSON SandboxStatus where

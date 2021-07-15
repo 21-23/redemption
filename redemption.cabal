@@ -64,6 +64,7 @@ library
       StandaloneDeriving
       UndecidableInstances
       DataKinds
+  ghc-options: -Werror -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-missing-methods -Wno-unused-packages -Wno-missing-safe-haskell-mode -Wno-prepositive-qualified-module
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -104,7 +105,7 @@ executable redemption-exe
       StandaloneDeriving
       UndecidableInstances
       DataKinds
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Werror -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-missing-methods -Wno-unused-packages -Wno-missing-safe-haskell-mode -Wno-prepositive-qualified-module -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -147,7 +148,7 @@ test-suite redemption-test
       StandaloneDeriving
       UndecidableInstances
       DataKinds
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Werror -Weverything -Wno-missing-exported-signatures -Wno-missing-import-lists -Wno-missed-specialisations -Wno-all-missed-specialisations -Wno-unsafe -Wno-safe -Wno-missing-local-signatures -Wno-monomorphism-restriction -Wno-implicit-prelude -Wno-missing-methods -Wno-unused-packages -Wno-missing-safe-haskell-mode -Wno-prepositive-qualified-module -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , base >=4.7 && <5

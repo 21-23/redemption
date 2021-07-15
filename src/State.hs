@@ -1,6 +1,43 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module State where
+module State
+  ( State(..)
+  , SessionTimers(..)
+  , empty
+  , getSession
+  , resetSyncSolutions
+  , createSession
+  , addSession
+  , createTimers
+  , stopTimers
+  , getStartTimer
+  , getRoundTimer
+  , getSolutionSyncTimer
+  , createSandboxTransaction
+  , getSandboxTransaction
+  , updateSandboxTransaction
+  , clearSandboxTransactions
+  , resolveSessionAlias
+  , getSessionByAlias
+  , addParticipant
+  , removeParticipant
+  , getPuzzleIndex
+  , setPuzzleIndex
+  , setRoundPhase
+  , addRound
+  , getStartCountdown
+  , setStartCountdown
+  , getRoundCountdown
+  , setRoundCountdown
+  , setParticipantInput
+  , getSolutionTime
+  , addSolution
+  , hasCorrectSolution
+  , getSandboxStatus
+  , setSandboxStatus
+  , getSessionForSandbox
+  , syncSolutionsEmpty
+  ) where
 
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -13,17 +50,21 @@ import           Data.Text (Text)
 import           Data.Time.Clock (UTCTime, NominalDiffTime)
 import           Data.List (find)
 
-import Participant
+import Participant ( Participant(Participant), ParticipantUid )
 import Session
+    ( Session(..),
+      SessionAlias,
+      SessionId )
+import qualified Session
 import Round (Round)
-import RoundPhase
+import RoundPhase ( RoundPhase(Idle) )
 import Puzzle (Puzzle)
 import SandboxTransaction (SandboxTransaction(SandboxTransaction),
                            SandboxTransactionRegistry,
-                           empty,
                            update,
                            get
                            )
+import qualified SandboxTransaction
 import Solution (Solution(..))
 import Game (Game)
 import SandboxStatus (SandboxStatus(..))
@@ -74,8 +115,7 @@ createTimers :: IO SessionTimers
 createTimers = do
   startTmr <- newTimer
   roundTmr <- newTimer
-  solutionSyncTimer <- newTimer
-  return $ SessionTimers startTmr roundTmr solutionSyncTimer
+  SessionTimers startTmr roundTmr <$> newTimer
 
 createSandboxTransaction :: SessionId -> ParticipantUid -> Text -> UTCTime -> IO SandboxTransaction
 createSandboxTransaction sessionId participantId input time = do
@@ -104,9 +144,9 @@ getSolutionSyncTimer sessionId State{timers} = solutionSyncTimer <$> Map.lookup 
 
 stopTimers :: SessionId -> State -> IO ()
 stopTimers sessionId state = do
-  fromMaybe (return ()) $ stopTimer <$> getStartTimer sessionId state
-  fromMaybe (return ()) $ stopTimer <$> getSolutionSyncTimer sessionId state
-  fromMaybe (return ()) $ stopTimer <$> getRoundTimer sessionId state
+  maybe (return ()) stopTimer (getStartTimer sessionId state)
+  maybe (return ()) stopTimer (getSolutionSyncTimer sessionId state)
+  maybe (return ()) stopTimer (getRoundTimer sessionId state)
 
 addSession :: Session -> SessionId -> SessionTimers -> State -> State
 addSession session@Session{alias, game} sessionId sessionTimers state@State{sessions, timers, aliases} =

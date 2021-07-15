@@ -1,20 +1,23 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module RoundPhase where
+module RoundPhase
+  ( RoundPhase (..)
+  ) where
 
-import Control.Monad
+import Control.Monad ( MonadPlus(mzero) )
 import Data.Text (pack, toLower)
 
 import Data.Aeson
-import Database.Persist.TH
+    ( FromJSON(parseJSON), Value(String), ToJSON(toJSON) )
+import Database.Persist.TH ( derivePersistField )
 
 data RoundPhase
   = Idle
   | Countdown
   | InProgress
   | End
-  deriving (Eq, Show, Read)
+  deriving stock (Eq, Show, Read)
+
 derivePersistField "RoundPhase"
 
 instance ToJSON RoundPhase where

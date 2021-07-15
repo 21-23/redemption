@@ -1,9 +1,10 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-module ServiceIdentity where
+module ServiceIdentity
+  ( ServiceType(..)
+  , ServiceIdentity(..)
+  , ServiceSelector(..)
+  ) where
 
 import           Data.Text  (Text, pack, unpack, splitOn)
-import           Data.Semigroup ((<>))
 import           Data.Aeson (ToJSON(toJSON), FromJSON, Value(String, Object), object, (.=), (.:))
 import qualified Data.Aeson  as Aeson
 import           Control.Monad (MonadPlus, mzero)
@@ -17,7 +18,7 @@ data ServiceType
   | SandboxService Game
   | InitService
   | ContainerService
-  deriving (Eq, Ord, Read)
+  deriving stock (Eq, Ord, Read)
 
 instance Show ServiceType where
   show StateService          = "state-service"
@@ -44,7 +45,7 @@ parseServiceType string =
     _                               -> mzero
 
 data ServiceIdentity = ServiceIdentity ServiceType UUID
-  deriving (Eq, Ord, Read, Show)
+  deriving stock (Eq, Ord, Read, Show)
 
 instance ToJSON ServiceIdentity where
   toJSON (ServiceIdentity serviceType uuid) = object
@@ -63,7 +64,7 @@ data ServiceSelector
   = Messenger
   | Service ServiceIdentity
   | AnyOfType ServiceType
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance ToJSON ServiceSelector where
   toJSON Messenger = String "messenger"

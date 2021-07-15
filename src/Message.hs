@@ -1,34 +1,52 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts  #-}
 
-module Message where
+module Message
+  ( IncomingMessage(..)
+  , OutgoingMessage(..)
+  ) where
 
-import Control.Monad
-import Data.Text (Text)
-import qualified Data.Text as Text
-import Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
+import           Control.Monad           (MonadPlus (mzero))
 import Data.Aeson
-import Data.Semigroup
-import Data.Time.Clock
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import Data.Maybe (fromMaybe)
-import Data.UUID (UUID)
-import Data.ByteString.Lazy (ByteString)
+    ( (.:),
+      (.:?),
+      object,
+      FromJSON(parseJSON),
+      Value(String, Object),
+      KeyValue((.=)),
+      ToJSON(toJSON) )
+import           Data.ByteString.Lazy    (ByteString)
+import           Data.Maybe              (fromMaybe)
+import Data.Semigroup ()
+import           Data.Text               (Text)
+import qualified Data.Text as Text
+import           Data.Text.Lazy.Encoding (decodeUtf8, encodeUtf8)
+import Data.Time.Clock ( NominalDiffTime, UTCTime )
+import           Data.Time.Clock.POSIX   (posixSecondsToUTCTime)
+import           Data.UUID               (UUID)
 
-import Participant
+import           Game                    (Game)
+import Participant ( ParticipantUid )
+import           PlayerRoundData         (PlayerRoundData)
+import           Puzzle                  (Puzzle, PuzzleId, expected, hidden,
+                                          input, name, options, sandboxSettings,
+                                          toSimpleJSON)
+import           PuzzleOptions           (toSimpleJSON)
+import Role ( Role )
+import RoundPhase ( RoundPhase(End, InProgress) )
+import           SandboxStatus           (toSimpleJSON)
+import           ServiceIdentity         (ServiceIdentity, ServiceType)
 import Session
-import RoundPhase
-import Puzzle (Puzzle, PuzzleId, name, input, expected, hidden, options, sandboxSettings, toSimpleJSON)
-import PuzzleOptions (toSimpleJSON)
-import Role
-import UUIDPersistField()
-import PlayerRoundData (PlayerRoundData)
-import SolutionCorrectness (SolutionCorrectness(..))
-import Game (Game)
-import ServiceIdentity (ServiceIdentity, ServiceType)
-import SandboxStatus (toSimpleJSON)
-import Solution(Solution(..))
+    ( SessionAlias,
+      SessionId,
+      Session(sandboxStatus, puzzles, roundCountdown, startCountdown,
+              syncSolutions, puzzleIndex, roundPhase),
+      lookupPuzzle,
+      getSolution,
+      hasCorrectSolution,
+      getPlayerRoundData )
+import           Solution                (Solution (..))
+import           SolutionCorrectness     (SolutionCorrectness (..))
+import           UUIDPersistField        ()
 
 type ConnectionId = String
 
@@ -70,28 +88,28 @@ data OutgoingMessage
   | SolutionSync SessionId Session
 
 toName :: OutgoingMessage -> Text
-toName ArnauxCheckin {}           = "checkin"
-toName SessionCreated {}          = "session.created"
-toName SessionJoinSucccess {}     = "sessionJoin.result"
-toName SessionJoinFailure {}      = "sessionJoin.result"
-toName ParticipantLeft {}         = "participant.left"
-toName KickParticipant {}         = "participant.kick"
-toName PuzzleChanged {}           = "puzzle.changed"
-toName RoundPhaseChanged {}       = "roundPhase.changed"
-toName SetSandbox {}              = "sandbox.set"
-toName ResetSandbox {}            = "sandbox.reset"
-toName StartCountdownChanged {}   = "startCountdown.changed"
-toName RoundCountdownChanged {}   = "roundCountdown.changed"
-toName RoundPuzzle {}             = "puzzle"
-toName EvaluateSolution {}        = "solution.evaluate"
-toName SolutionEvaluated {}       = "solution.evaluated"
-toName Score {}                   = "score"
-toName PuzzleCreated {}           = "puzzle.created"
-toName PlayerSessionState {}      = "player.sessionState"
-toName GameMasterSessionState {}  = "gameMaster.sessionState"
-toName ServiceRequest {}          = "service.request"
-toName SessionSandboxReady {}     = "sandbox.status"
-toName SolutionSync {}            = "solution.sync"
+toName ArnauxCheckin {}          = "checkin"
+toName SessionCreated {}         = "session.created"
+toName SessionJoinSucccess {}    = "sessionJoin.result"
+toName SessionJoinFailure {}     = "sessionJoin.result"
+toName ParticipantLeft {}        = "participant.left"
+toName KickParticipant {}        = "participant.kick"
+toName PuzzleChanged {}          = "puzzle.changed"
+toName RoundPhaseChanged {}      = "roundPhase.changed"
+toName SetSandbox {}             = "sandbox.set"
+toName ResetSandbox {}           = "sandbox.reset"
+toName StartCountdownChanged {}  = "startCountdown.changed"
+toName RoundCountdownChanged {}  = "roundCountdown.changed"
+toName RoundPuzzle {}            = "puzzle"
+toName EvaluateSolution {}       = "solution.evaluate"
+toName SolutionEvaluated {}      = "solution.evaluated"
+toName Score {}                  = "score"
+toName PuzzleCreated {}          = "puzzle.created"
+toName PlayerSessionState {}     = "player.sessionState"
+toName GameMasterSessionState {} = "gameMaster.sessionState"
+toName ServiceRequest {}         = "service.request"
+toName SessionSandboxReady {}    = "sandbox.status"
+toName SolutionSync {}           = "solution.sync"
 
 instance ToJSON OutgoingMessage where
   toJSON message = object $ ["name" .= toName message] <> toValue message

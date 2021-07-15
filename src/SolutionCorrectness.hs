@@ -1,18 +1,21 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module SolutionCorrectness where
+module SolutionCorrectness
+  ( SolutionCorrectness(..)
+  ) where
 
-import Database.Persist.TH
+import Database.Persist.TH ( derivePersistField )
 
 import Data.Aeson
+    ( FromJSON(parseJSON), Value(String), ToJSON(toJSON) )
 import Control.Monad (mzero)
 
 data SolutionCorrectness
   = Incorrect
   | Partial
   | Correct
-  deriving (Show, Read, Eq)
+  deriving stock (Show, Read, Eq)
 derivePersistField "SolutionCorrectness"
 
 instance ToJSON SolutionCorrectness where

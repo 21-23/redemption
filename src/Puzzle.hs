@@ -1,30 +1,36 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
 
-module Puzzle where
+module Puzzle
+  ( Puzzle(..)
+  , PuzzleId
+  , toSimpleJSON
+  ) where
 
-import Language.Haskell.TH.Syntax (Type(..))
-import Database.Persist.TH
-import Database.Persist.MongoDB
+import           Database.Persist.MongoDB    (BackendKey (MongoKey),
+                                              MongoContext)
+import           Database.Persist.TH         (MkPersistSettings (mpsPrefixFields),
+                                              mkPersist, mkPersistSettings,
+                                              persistLowerCase, share)
+import           Language.Haskell.TH.Syntax  (Type (..))
 
-import Data.Text
+import           Data.Text                   (Text)
 
-import NominalDiffTimePersistField()
-import Test (Test)
-import Data.Aeson (Value, object, (.=))
+import           Data.Aeson                  (Value, object, (.=))
+import           NominalDiffTimePersistField ()
+import           Test                        (Test)
 
-import Game (Game(..))
-import PuzzleOptions (PuzzleOptions(..), toSimpleJSON)
-import SandboxSettings (SandboxSettings)
+import           Game                        (Game (..))
+import           PuzzleOptions               (PuzzleOptions (..))
+import qualified PuzzleOptions
+import           SandboxSettings             (SandboxSettings)
 
-let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsGeneric = False, mpsPrefixFields = False }
+let mongoSettings = (mkPersistSettings (ConT ''MongoContext)) { mpsPrefixFields = False }
  in share [mkPersist mongoSettings] [persistLowerCase|
 Puzzle json
   game            Game

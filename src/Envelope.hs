@@ -1,7 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns #-}
-
-module Envelope where
+module Envelope (Envelope(..)) where
 
 import Data.Aeson      (Value(Object),
                         FromJSON(parseJSON),
